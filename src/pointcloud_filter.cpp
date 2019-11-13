@@ -6,6 +6,7 @@
  */
 
 #include "pointcloud_filter.h"
+#define NO_CONOUTS_ERROR -1
 
 void PointcloudFilter::filter ( int argc, char** argv, 
 								string pointcloud_sub_topic, 
@@ -44,7 +45,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		if (pcl_pub_sub.nContours == 0) {
 			//cout << "trazi closest od org clouda!" << endl << endl;
-			pcl_pub_sub.publishDistance( findClosestDistance(originalCloud) );
+			pcl_pub_sub.publishDistance(NO_CONOUTS_ERROR);
 		}
 		else {
 			//cout << "trazi closest od filtriranog clouda!" << endl << endl;
