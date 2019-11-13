@@ -1,0 +1,6 @@
+<launch>
+    <node name="pointcloud_filter" type="pointcloud_filter" pkg="pointcloud_filter">
+        <remap from="erl_husky/camera/depth_registered/points" to="camera/depth_registered/points"/>
+        <remap from="/color_filter/brick_mask/compressed" to="/red/red_color_filter/brick_mask/compressed"/>
+    </node>
+</launch>
