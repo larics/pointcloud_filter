@@ -56,22 +56,10 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		tf::StampedTransform temp_trans;
 
-		try 
-		{
-	    	tf_listener.lookupTransform( 	goal_frame, filteredCloud->header.frame_id, 
-	      									ros::Time(0), temp_trans );
-	    	pcl_ros::transformPointCloud(*filteredCloud, *transformedFilteredCloud, temp_trans);
-		
-
-			pcl_pub_sub.publishPointCloud(transformedFilteredCloud, goal_frame);
-			//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
-			//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
-			pcl_pub_sub.publishBaseDistance( findClosestX(transformedFilteredCloud) );
-	    }
-	    catch ( tf::TransformException ex ){
-			ROS_ERROR("%s",ex.what());
-			ros::Duration(1.0).sleep();
-	    }
+		pcl_pub_sub.publishPointCloud(filteredCloud, filteredCloud->header.frame_id);
+		//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
+		//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
+		pcl_pub_sub.publishBaseDistance( findClosestX(transformedFilteredCloud) );
 	}
 }
 /*
