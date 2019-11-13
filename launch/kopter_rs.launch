@@ -4,5 +4,6 @@
     <node name="pointcloud_filter" type="pointcloud_filter" pkg="pointcloud_filter" ns="$(arg namespace)">
         <remap from="erl_husky/camera/depth_registered/points" to="camera/depth_registered/points"/>
         <remap from="color_filter/brick_mask/compressed" to="red_color_filter/brick_mask/compressed"/>
+        <remap from="/color_filter/nContours" to="red_color_filter/nContours"/>
     </node>
 </launch>
