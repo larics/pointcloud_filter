@@ -6,6 +6,8 @@
  */
 
 #include "pointcloud_filter.h"
+#include "KalmanDetection.h"
+
 #define NO_CONOUTS_ERROR -1
 
 void PointcloudFilter::filter ( int argc, char** argv, 
@@ -23,11 +25,13 @@ void PointcloudFilter::filter ( int argc, char** argv,
 							closest_point_distance_pub_topic, closest_point_base_distance_pub_topic, 
 							mask_sub_topic);
 	ros::Rate loop_rate(50);
-
 	tf::TransformListener tf_listener;
-
 	ros::Duration(3.0).sleep();
-	
+
+	KalmanDetection kalmanDetection;
+	double dt = 1.0 / 50.0;
+	kalmanDetection.initializeParameters(nodeHandle);
+
 	while(nodeHandle.ok())
 	{
 		ros::spinOnce();
@@ -43,14 +47,20 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		filteredCloud = removeNaNValues(filteredCloud);
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
+		double newDistance;
 		if (pcl_pub_sub.nContours == 0) {
 			//cout << "trazi closest od org clouda!" << endl << endl;
-			pcl_pub_sub.publishDistance(NO_CONOUTS_ERROR);
+			newDistance = NO_CONOUTS_ERROR;
 		}
 		else {
-			//cout << "trazi closest od filtriranog clouda!" << endl << endl;
-			pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
+			newDistance = findClosestDistance(filteredCloud);
 		}
+		pcl_pub_sub.publishDistance(newDistance);
+
+		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
+		kalmanDetection.filterCurrentDistance(dt, newDistance, newMeas);
+		kalmanDetection.publish();
+		pcl_pub_sub.resetNewMeasurementFlag();
 
 		pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
 		string goal_frame = "base_link";

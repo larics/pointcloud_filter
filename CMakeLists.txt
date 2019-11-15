@@ -5,7 +5,14 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
+  uav_ros_control
+	dynamic_reconfigure
 )
+
+generate_dynamic_reconfigure_options(
+	config/BrickDistanceParameters.cfg
+)
+
 
 find_package(PCL 1.7 REQUIRED)
 find_package(OpenCV REQUIRED)
