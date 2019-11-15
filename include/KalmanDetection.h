@@ -5,7 +5,7 @@
 #include <pointcloud_filter/BrickDistanceParametersConfig.h>
 #include <ros/ros.h>
 #include <dynamic_reconfigure/server.h>
-#include <std_msgs/Float64.h>
+#include <std_msgs/Float32.h>
 
 #define NO_DISTANCE_DETECTED -1
 #define MAX_INVALID_TIME 2
@@ -64,8 +64,8 @@ void initializeParameters(ros::NodeHandle& nh)
 	_bdistServer.setCallback(_bdistParamCb);
 
     // Initialize publisher
-    _filtDistPub = nh.advertise<std_msgs::Float64>("brick/filtered_distance", 1);
-    _filtDistVelPub = nh.advertise<std_msgs::Float64>("brick/filtered_distance_velocity", 1);
+    _filtDistPub = nh.advertise<std_msgs::Float32>("brick/filtered_distance", 1);
+    _filtDistVelPub = nh.advertise<std_msgs::Float32>("brick/filtered_distance_velocity", 1);
 }
 
 void parametersCallback(
@@ -134,11 +134,11 @@ void filterCurrentDistance(double dt, double currDistance, bool newMeasurementFl
 
 void publish()
 {
-    std_msgs::Float64 distMsg;
+    std_msgs::Float32 distMsg;
     distMsg.data = _filteredDistance;
     _filtDistPub.publish(distMsg);
 
-    std_msgs::Float64 velMsg;
+    std_msgs::Float32 velMsg;
     velMsg.data = _filteredDistanceVel;
     _filtDistVelPub.publish(velMsg);    
 }
