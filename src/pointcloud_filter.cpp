@@ -47,18 +47,19 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		filteredCloud = removeNaNValues(filteredCloud);
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
-		double newDistance;
+		std::vector<double> minDistances;
 		if (pcl_pub_sub.nContours == 0) {
 			//cout << "trazi closest od org clouda!" << endl << endl;
-			newDistance = NO_CONOUTS_ERROR;
+			minDistances = std::vector<double>(4, NO_CONOUTS_ERROR);
 		}
 		else {
-			newDistance = findClosestDistance(filteredCloud);
+			minDistances = findClosestDistance(filteredCloud);
 		}
-		pcl_pub_sub.publishDistance(newDistance);
+		// Publish the absolute distance
+		pcl_pub_sub.publishDistance(minDistances[3]);
 
 		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
-		kalmanDetection.filterCurrentDistance(dt, newDistance, newMeas);
+		kalmanDetection.filterCurrentDistance(dt, minDistances[3], newMeas);
 		kalmanDetection.publish();
 		pcl_pub_sub.resetNewMeasurementFlag();
 
@@ -68,9 +69,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		tf::StampedTransform temp_trans;
 
 		pcl_pub_sub.publishPointCloud(filteredCloud, filteredCloud->header.frame_id);
-		//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
-		//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
-		pcl_pub_sub.publishBaseDistance( findClosestX(transformedFilteredCloud) );
+		pcl_pub_sub.publishBaseDistance( minDistances[0] );
 	}
 }
 /*
@@ -106,7 +105,7 @@ double PointcloudFilter::findClosestX(pcXYZ::Ptr inputCloud)
 	return min_x;
 }
 
-double PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
+std::vector<double> PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
 {
 	double inf_distance = 99999.9;
 	double min_distance = inf_distance;
@@ -114,7 +113,7 @@ double PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
 	double min_y = 0.0;
 	double min_z = 0.0;
 
-	if(!inputCloud || inputCloud->points.size() == 0)	return -1;
+	if(!inputCloud || inputCloud->points.size() == 0)	return std::vector<double> {-1, -1, -1, -1};
 	else {
 		for (int i = 0; i < inputCloud->points.size(); i++) {
 			double x = inputCloud->points[i].x;
@@ -130,7 +129,7 @@ double PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
 		}
 	}
 	//cout << "closest point: (" << min_x << ", " << min_y << ", " << min_z << ")" << endl << endl;
-	return min_distance;
+	return std::vector<double> {min_x, min_y, min_z, min_distance};
 }
 
 vector <Eigen::Vector3d> PointcloudFilter::pointIndicesToInlierPoints (
@@ -157,6 +156,7 @@ pcXYZ::Ptr PointcloudFilter::removeNaNValues ( pcXYZ::Ptr inputCloud )
 pcXYZ::Ptr PointcloudFilter::removeNonMaskValues( pcXYZ::Ptr inputCloud, 
 												vector <vector <int>> mask )
 {
+	
 	pcXYZ::Ptr tempCloud ( new pcXYZ );
 	*tempCloud = *inputCloud;
 

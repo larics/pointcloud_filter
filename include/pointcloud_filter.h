@@ -42,8 +42,10 @@ namespace PointcloudFilter {
 	vector <Eigen::Vector3d> pointIndicesToInlierPoints ( pcXYZ::Ptr inputCloud, 
 		pcl::PointIndices::Ptr inliers);
 
-
-	double findClosestDistance(pcXYZ::Ptr inputCloud);
+	/**
+	 * Returns minimum distance 
+	 */
+	std::vector<double> findClosestDistance(pcXYZ::Ptr inputCloud);
 	double findClosestX(pcXYZ::Ptr inputCloud);
 	
 };
