@@ -108,14 +108,14 @@ void filterCurrentDistance(double dt, double currDistance, bool newMeasurementFl
     // Do measure update if everything is valid
     if (newMeasurementFlag && currDistance > 0)
     {
-        ROS_INFO("KalmanFilter - New measurement! update called");
+        // ROS_INFO("KalmanFilter - New measurement! update called");
         _kalmanFilter->measureUpdate(currDistance);
         _timeInvalid = 0;
     }
     else
     {
         // Increase time invalid
-        ROS_WARN("KalmanFilter - doing only model update");
+        // ROS_WARN("KalmanFilter - doing only model update");
         _timeInvalid += dt;
     }
 

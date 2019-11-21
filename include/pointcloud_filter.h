@@ -37,6 +37,8 @@ namespace PointcloudFilter {
 	// returns unorganized pointcloud without NaN values
 	pcXYZ::Ptr removeNaNValues ( pcXYZ::Ptr inputCloud );
 
+	pcXYZ::Ptr doOutlierFiltering( pcXYZ::Ptr inputCloud , ros::NodeHandle&);
+
 	//pcXYZ::Ptr transformCloud(pcXYZ::Ptr inputCloud, string goal_frame, tf::TransformListener tf_listener);
 
 	vector <Eigen::Vector3d> pointIndicesToInlierPoints ( pcXYZ::Ptr inputCloud, 

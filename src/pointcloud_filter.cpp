@@ -7,6 +7,7 @@
 
 #include "pointcloud_filter.h"
 #include "KalmanDetection.h"
+#include <pcl/filters/statistical_outlier_removal.h>
 
 #define NO_CONOUTS_ERROR -1
 
@@ -45,6 +46,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		filteredCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
 		filteredCloud = removeNaNValues(filteredCloud);
+		filteredCloud = doOutlierFiltering(filteredCloud, nodeHandle);
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances;
@@ -89,6 +91,25 @@ pcXYZ::Ptr PointcloudFilter::transformCloud(pcXYZ::Ptr inputCloud, string goal_f
 	return outputCloud;
 }
  */
+
+
+pcXYZ::Ptr PointcloudFilter::doOutlierFiltering( pcXYZ::Ptr inputCloud , ros::NodeHandle& nh)
+{
+	double meanK = 50, stddevMulThres = 1;
+	nh.getParam("brick/outlier/mean_k", meanK);
+	nh.getParam("brick/outlier/stddev_multiplier_thresh", stddevMulThres);
+
+	pcXYZ::Ptr cloud_filtered {new pcXYZ};
+	// Create the filtering object
+	pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+	sor.setInputCloud (inputCloud);
+	sor.setMeanK (meanK);
+	sor.setStddevMulThresh (stddevMulThres);
+	sor.filter (*cloud_filtered);
+
+	return cloud_filtered;
+}
+
 double PointcloudFilter::findClosestX(pcXYZ::Ptr inputCloud)
 {
 	double inf_x = 99999.9;
