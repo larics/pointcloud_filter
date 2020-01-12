@@ -23,10 +23,12 @@ namespace PointcloudFilter {
 
 	void filter ( int argc, char** argv, 
 				string pointcloud_sub_topic, 
-				string mask_sub_topic, 
+                string mask_sub_topic,
+                string patch_mask_sub_topic,
 				string filtered_pointcloud_pub_topic, 
 				string closest_point_distance_pub_topic,
 				string closest_point_base_distance_pub_topic,
+				string patch_centroid_pub_topic,
 				string camera_frame );
 
 	// removeNonMaskValues 
@@ -49,6 +51,11 @@ namespace PointcloudFilter {
 	 */
 	std::vector<double> findClosestDistance(pcXYZ::Ptr inputCloud);
 	double findClosestX(pcXYZ::Ptr inputCloud);
+
+     /**
+      * Returns cloud centroid
+      */
+    std::vector<double> findCentroid(pcXYZ::Ptr inputCloud);
 	
 };
 
