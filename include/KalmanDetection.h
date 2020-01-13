@@ -90,14 +90,14 @@ void filterCurrentDistance(double dt, double currDistance, bool newMeasurementFl
     }
 
     // Check if initialization failed
-    if (!_kalmanInitialized && currDistance < 0)
+    if (!_kalmanInitialized && currDistance == NO_DISTANCE_DETECTED)
     {
         ROS_WARN("KalmanFilter - Failed to initialize");
         return;
     }
 
     // Check if initialization should take place
-    if (!_kalmanInitialized && currDistance >= 0)
+    if (!_kalmanInitialized && currDistance != NO_DISTANCE_DETECTED)
     {
         _kalmanInitialized = true;
         _kalmanFilter->initializePosition(currDistance);
@@ -108,7 +108,7 @@ void filterCurrentDistance(double dt, double currDistance, bool newMeasurementFl
     _kalmanFilter->modelUpdate(dt);
 
     // Do measure update if everything is valid
-    if (newMeasurementFlag && currDistance > 0)
+    if (newMeasurementFlag &&currDistance != NO_DISTANCE_DETECTED)
     {
         // ROS_INFO("KalmanFilter - New measurement! update called");
         _kalmanFilter->measureUpdate(currDistance);
