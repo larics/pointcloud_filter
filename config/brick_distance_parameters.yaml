@@ -8,4 +8,20 @@ brick:
         noise_pos: 1
         noise_vel: 1
 
-        
+centroid_x:
+    kalman:
+        noise_mv: 300
+        noise_pos: 1
+        noise_vel: 1
+
+centroid_y:
+    kalman:
+        noise_mv: 300
+        noise_pos: 1
+        noise_vel: 1
+
+centroid_z:
+    kalman:
+        noise_mv: 300
+        noise_pos: 1
+        noise_vel: 1

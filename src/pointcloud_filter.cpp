@@ -33,9 +33,16 @@ void PointcloudFilter::filter ( int argc, char** argv,
 	tf::TransformListener tf_listener;
 	ros::Duration(3.0).sleep();
 
-	KalmanDetection kalmanDetection;
+	KalmanDetection KFabsBrickDistance("brick");
+	KalmanDetection KFpatchCentroidX("centroid_x");
+	KalmanDetection KFpatchCentroidY("centroid_y");
+	KalmanDetection KFpatchCentroidZ("centroid_z");
+
 	double dt = 1.0 / 50.0;
-	kalmanDetection.initializeParameters(nodeHandle);
+	KFabsBrickDistance.initializeParameters(nodeHandle);
+	KFpatchCentroidX.initializeParameters(nodeHandle);
+	KFpatchCentroidY.initializeParameters(nodeHandle);
+	KFpatchCentroidZ.initializeParameters(nodeHandle);
 
 	while(nodeHandle.ok())
 	{
@@ -72,10 +79,21 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		pcl_pub_sub.publishPatchCentroidVector(patchCentroid);
 
 		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
-		kalmanDetection.filterCurrentDistance(dt, minDistances[3], newMeas);
-		kalmanDetection.publish();
+		// Do the Kalman Filter Here
+		KFabsBrickDistance.filterCurrentDistance(dt, minDistances[3], newMeas);
+		KFpatchCentroidX.filterCurrentDistance(dt, patchCentroid[0], newMeas);
+		KFpatchCentroidY.filterCurrentDistance(dt, patchCentroid[1], newMeas);
+		KFpatchCentroidZ.filterCurrentDistance(dt, patchCentroid[2], newMeas);
+		KFabsBrickDistance.publish();
 		pcl_pub_sub.resetNewMeasurementFlag();
 
+		pcl_pub_sub.publishPatchCentroidFilteredVector(
+			std::vector<double> {
+				KFpatchCentroidX.getState(),
+				KFpatchCentroidY.getState(),
+				KFpatchCentroidZ.getState()
+			}
+		);
 		pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
 		string goal_frame = "base_link";
 
