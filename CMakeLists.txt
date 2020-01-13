@@ -5,8 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
-  uav_ros_control
-	dynamic_reconfigure
+  dynamic_reconfigure
 )
 
 generate_dynamic_reconfigure_options(
@@ -37,6 +36,7 @@ add_executable(pointcloud_filter
   src/pc_pub_sub.cpp
   src/pointcloud_filter.cpp
 )
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(
 	pointcloud_filter

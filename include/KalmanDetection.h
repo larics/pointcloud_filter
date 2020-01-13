@@ -1,7 +1,7 @@
 #ifndef KALMAN_DETECTION_H
 #define KALMAN_DETECTION_H
 
-#include <uav_ros_control/filters/KalmanFilter.h>
+#include "KalmanFilter.h"
 #include <pointcloud_filter/BrickDistanceParametersConfig.h>
 #include <ros/ros.h>
 #include <dynamic_reconfigure/server.h>
