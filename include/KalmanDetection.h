@@ -16,12 +16,14 @@ class KalmanDetection
 
 public:
 
-KalmanDetection():
+KalmanDetection(std::string ns):
+    _bdistServer {_bdistMutex, ros::NodeHandle("kalman_ns/" + ns + "_config")},
     _kalmanFilter {new KalmanFilter},
     _kalmanInitialized {false},
     _filteredDistance (NO_DISTANCE_DETECTED),
     _filteredDistanceVel (0),
-    _timeInvalid (0)
+    _timeInvalid (0),
+    _ns (ns)
 {
 }
 
@@ -38,9 +40,9 @@ void initializeParameters(ros::NodeHandle& nh)
     double kalmanNoisePos;
     double kalmanNoiseVel;
     bool initialized = 
-        nh.getParam("brick/kalman/noise_mv", kalmanNoiseMv) &&
-        nh.getParam("brick/kalman/noise_pos", kalmanNoisePos) &&
-        nh.getParam("brick/kalman/noise_vel", kalmanNoiseVel);
+        nh.getParam(_ns + "/kalman/noise_mv", kalmanNoiseMv) &&
+        nh.getParam(_ns + "/kalman/noise_pos", kalmanNoisePos) &&
+        nh.getParam(_ns + "/kalman/noise_vel", kalmanNoiseVel);
 
     _kalmanFilter->setMeasureNoise(kalmanNoiseMv);
     _kalmanFilter->setPositionNoise(kalmanNoisePos);
@@ -64,8 +66,8 @@ void initializeParameters(ros::NodeHandle& nh)
 	_bdistServer.setCallback(_bdistParamCb);
 
     // Initialize publisher
-    _filtDistPub = nh.advertise<std_msgs::Float32>("brick/filtered_distance", 1);
-    _filtDistVelPub = nh.advertise<std_msgs::Float32>("brick/filtered_distance_velocity", 1);
+    _filtDistPub = nh.advertise<std_msgs::Float32>("kalman/" + _ns + "/filtered", 1);
+    _filtDistVelPub = nh.advertise<std_msgs::Float32>("kalman/" + _ns + "/filtered_vel", 1);
 }
 
 void parametersCallback(
@@ -151,11 +153,21 @@ void resetState()
     _filteredDistanceVel = 0;
 }
 
+double getState()
+{
+    return _filteredDistance;
+}
+
+double getStateVel()
+{
+    return _filteredDistanceVel;
+}
+
 private:
 
     /** Define Dynamic Reconfigure parameters **/
     boost::recursive_mutex _bdistMutex;
-    dynamic_reconfigure::Server<bdist_cfg> _bdistServer {_bdistMutex, ros::NodeHandle("brick_dist_config")};
+    dynamic_reconfigure::Server<bdist_cfg> _bdistServer;
     dynamic_reconfigure::Server<bdist_cfg>::CallbackType _bdistParamCb;
         
     /** Kalman filter object */
@@ -175,6 +187,8 @@ private:
 
 	/** Time passed while measurements are invalid. */
 	double _timeInvalid;
+
+    const std::string _ns;
 };
 
 #endif /* KALMAN_DETECTION_H */
