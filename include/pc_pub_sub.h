@@ -50,7 +50,8 @@ class PC_PUB_SUB
             string filtered_pointcloud_pub_topic,
             string closest_point_distance_pub_topic,
             string closest_point_base_distance_pub_topic,
-            string patch_centroid_pub_topic);
+            string patch_centroid_pub_topic,
+			string patch_centroid_filtered_pub_topic);
 
 		virtual ~PC_PUB_SUB();
 
@@ -62,6 +63,7 @@ class PC_PUB_SUB
 		void registerDistancePublisher(string topic);
 		void registerBaseDistancePublisher(string topic);
 		void registerPatchCentroidPublisher(string topic);
+		void registerPatchCentroidFilteredPublisher(string topic);
 
 		void rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg);
 		void resetNewMeasurementFlag();
@@ -76,6 +78,7 @@ class PC_PUB_SUB
 		void publishDistance(double distance); 
 		void publishBaseDistance(double distance);
 		void publishPatchCentroidVector(const vector<double> &centroid);
+		void publishPatchCentroidFilteredVector(const vector<double> &centroid);
 
 		void processRosImage(const sensor_msgs::CompressedImage::ConstPtr& ros_msg, vector < vector <int>> & mask);
 			
@@ -93,6 +96,7 @@ class PC_PUB_SUB
 		ros::Publisher pub_distance_;
 		ros::Publisher pub_base_distance_;
 		ros::Publisher pub_patch_centroid_;
+		ros::Publisher pub_patch_centroid_filtered_;
 		
 		pcl::PointCloud<pcl::PointXYZ>::Ptr organizedCloudPtr;
 		vector< vector <int>> mask;

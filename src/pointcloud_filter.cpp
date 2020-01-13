@@ -19,6 +19,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 								string closest_point_distance_pub_topic,
 								string closest_point_base_distance_pub_topic,
 								string patch_centroid_pub_topic,
+								string patch_centroid_filtered_pub_topic,
 								string camera_frame ) 
 {
 	ros::init(argc, argv, "pc_filter");
@@ -26,7 +27,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 	PC_PUB_SUB pcl_pub_sub(	nodeHandle, pointcloud_sub_topic, mask_sub_topic, patch_mask_sub_topic,
 							filtered_pointcloud_pub_topic, closest_point_distance_pub_topic,
-							closest_point_base_distance_pub_topic, patch_centroid_pub_topic);
+							closest_point_base_distance_pub_topic, patch_centroid_pub_topic, 
+							patch_centroid_filtered_pub_topic);
 	ros::Rate loop_rate(50);
 	tf::TransformListener tf_listener;
 	ros::Duration(3.0).sleep();

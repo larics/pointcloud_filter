@@ -7,7 +7,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle,
                         string filtered_pointcloud_pub_topic,
                         string closest_point_distance_pub_topic,
                         string closest_point_base_distance_pub_topic,
-                        string patch_centroid_pub_topic)
+                        string patch_centroid_pub_topic,
+						string patch_centroid_filtered_pub_topic)
 {
 	nodeHandle_ = nodeHandle;
 	registerPointCloudSubscriber(pointcloud_sub_topic);
@@ -21,6 +22,7 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle,
 	registerDistancePublisher(closest_point_distance_pub_topic);
 	registerBaseDistancePublisher(closest_point_base_distance_pub_topic);
 	registerPatchCentroidPublisher(patch_centroid_pub_topic);
+	registerPatchCentroidFilteredPublisher(patch_centroid_filtered_pub_topic);
 }
 
 PC_PUB_SUB::~PC_PUB_SUB() 
@@ -60,7 +62,11 @@ void PC_PUB_SUB::registerBaseDistancePublisher(string topic)
 }
 void PC_PUB_SUB::registerPatchCentroidPublisher(string topic)
 {
-    pub_patch_centroid_ = nodeHandle_.advertise<geometry_msgs::Point>(topic, 1000);
+    pub_patch_centroid_ = nodeHandle_.advertise<geometry_msgs::PointStamped>(topic, 1000);
+}
+void PC_PUB_SUB::registerPatchCentroidFilteredPublisher(string topic)
+{
+	pub_patch_centroid_filtered_ = nodeHandle_.advertise<geometry_msgs::PointStamped>(topic, 1000);
 }
 void PC_PUB_SUB::rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg) 
 {
@@ -172,10 +178,20 @@ void PC_PUB_SUB::publishBaseDistance(double distance)
 
 void PC_PUB_SUB::publishPatchCentroidVector(const vector< double> &centroid)
 {
-    geometry_msgs::Point::Ptr msg(new geometry_msgs::Point);
+  geometry_msgs::PointStamped msg;
+   msg.header.stamp = ros::Time::now();
+   msg.point.x = centroid[0];
+   msg.point.y = centroid[1];
+   msg.point.z = centroid[2];
+   pub_patch_centroid_.publish(msg);
+}
 
-   msg->x = centroid[0];
-   msg->y = centroid[1];
-   msg->z = centroid[2];
-   pub_patch_centroid_.publish(*msg);
+void PC_PUB_SUB::publishPatchCentroidFilteredVector(const vector<double>& centroid)
+{
+	geometry_msgs::PointStamped msg;
+	msg.header.stamp = ros::Time::now();
+	msg.point.x = centroid[0];
+	msg.point.y = centroid[1];
+	msg.point.z = centroid[2];
+	pub_patch_centroid_filtered_.publish(msg);
 }

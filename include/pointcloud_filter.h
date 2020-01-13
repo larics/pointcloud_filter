@@ -29,6 +29,7 @@ namespace PointcloudFilter {
 				string closest_point_distance_pub_topic,
 				string closest_point_base_distance_pub_topic,
 				string patch_centroid_pub_topic,
+				string patch_centroid_filtered_pub_topic,
 				string camera_frame );
 
 	// removeNonMaskValues 
