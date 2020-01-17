@@ -51,17 +51,19 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		
 		pcXYZ::Ptr originalCloud = pcl_pub_sub.getOrganizedCloudPtr();
 
-		if(!originalCloud || originalCloud->points.size() == 0) continue;
+		if(!originalCloud || originalCloud->points.size() == 0) {
+		continue;
+		}
 
 		pcXYZ::Ptr filteredCloud ( new pcXYZ ), patchCloud( new pcXYZ );
 
-		filteredCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
-		filteredCloud = removeNaNValues(filteredCloud);
-		filteredCloud = doOutlierFiltering(filteredCloud, nodeHandle);
+		// filteredCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
+		// filteredCloud = removeNaNValues(filteredCloud);
+		// filteredCloud = doOutlierFiltering(filteredCloud, nodeHandle);
 
 		patchCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getPatchMask());
-        patchCloud = removeNaNValues(patchCloud);
-        patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
+        	patchCloud = removeNaNValues(patchCloud);
+        	patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances, patchCentroid;
@@ -71,7 +73,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			patchCentroid = std::vector<double>(3, NO_CONOUTS_ERROR);
 		}
 		else {
-			minDistances = findClosestDistance(filteredCloud);
+		    minDistances = findClosestDistance(filteredCloud);
 		    patchCentroid = findCentroid(patchCloud);
 		}
 		// Publish the absolute distance
