@@ -82,11 +82,11 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
 		// Do the Kalman Filter Here
-		KFabsBrickDistance.filterCurrentDistance(dt, minDistances[3], newMeas);
+		// KFabsBrickDistance.filterCurrentDistance(dt, minDistances[3], newMeas);
 		KFpatchCentroidX.filterCurrentDistance(dt, patchCentroid[0], newMeas);
 		KFpatchCentroidY.filterCurrentDistance(dt, patchCentroid[1], newMeas);
 		KFpatchCentroidZ.filterCurrentDistance(dt, patchCentroid[2], newMeas);
-		KFabsBrickDistance.publish();
+		// KFabsBrickDistance.publish();
 		pcl_pub_sub.resetNewMeasurementFlag();
 
 		pcl_pub_sub.publishPatchCentroidFilteredVector(
