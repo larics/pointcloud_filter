@@ -31,7 +31,7 @@ void PC_PUB_SUB::registerImageSubscriber(string topic)
 
 void PC_PUB_SUB::registerNContoursSubscriber()
 {
-	sub_nContours_ = nodeHandle_.subscribe("/color_filter/nContours", 1, &PC_PUB_SUB::rosNContoursCallback, this);
+	sub_nContours_ = nodeHandle_.subscribe("/erl_husky/red/red_color_filter/nContours", 1, &PC_PUB_SUB::rosNContoursCallback, this);
 }
 
 void PC_PUB_SUB::registerPointCloudPublisher(string topic) 
