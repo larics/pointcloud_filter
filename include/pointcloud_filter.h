@@ -45,7 +45,7 @@ namespace PointcloudFilter {
 
 	double findClosestDistance(pcXYZ::Ptr inputCloud);
 	double findClosestX(pcXYZ::Ptr inputCloud);
-	
+
 };
 
 

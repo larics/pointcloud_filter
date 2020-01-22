@@ -6,6 +6,7 @@
  */
 
 #include "pointcloud_filter.h"
+#include "KalmanDetection.h"
 
 void PointcloudFilter::filter ( int argc, char** argv, 
 								string pointcloud_sub_topic, 
@@ -21,11 +22,18 @@ void PointcloudFilter::filter ( int argc, char** argv,
 	PC_PUB_SUB pcl_pub_sub(	nodeHandle, pointcloud_sub_topic, filtered_pointcloud_pub_topic, 
 							closest_point_distance_pub_topic, closest_point_base_distance_pub_topic, 
 							mask_sub_topic);
-	ros::Rate loop_rate(50);
+	const double rate = 50;
+	const double dt = 1.0 / rate;
+	ros::Rate loop_rate(rate);
 
 	tf::TransformListener tf_listener;
 
 	ros::Duration(3.0).sleep();
+	KalmanDetection closestDistKF("/closest_distance");
+	KalmanDetection baseDistKF("/base_distance");
+
+	closestDistKF.initializeParameters(nodeHandle);
+	baseDistKF.initializeParameters(nodeHandle);
 	
 	while(nodeHandle.ok())
 	{
@@ -41,15 +49,19 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		filteredCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
 		filteredCloud = removeNaNValues(filteredCloud);
 
+		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		if (pcl_pub_sub.nContours == 0) {
-			//cout << "trazi closest od org clouda!" << endl << endl;
-			pcl_pub_sub.publishDistance( findClosestDistance(originalCloud) );
+			double closestDistance = findClosestDistance(originalCloud);
+			closestDistKF.filterCurrentDistance(dt, closestDistance, newMeas);
+			pcl_pub_sub.publishDistance( closestDistance );
 		}
 		else {
-			//cout << "trazi closest od filtriranog clouda!" << endl << endl;
-			pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
+			double filteredDistance = findClosestDistance(filteredCloud);
+			closestDistKF.filterCurrentDistance(dt, filteredDistance, newMeas);
+			pcl_pub_sub.publishDistance( filteredDistance);
 		}
+		closestDistKF.publish();
 
 		pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
 		string goal_frame = "base_link";
@@ -66,12 +78,17 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			pcl_pub_sub.publishPointCloud(transformedFilteredCloud, goal_frame);
 			//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
 			//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
-			pcl_pub_sub.publishBaseDistance( findClosestX(transformedFilteredCloud) );
+			double closestBasePoint = findClosestX(transformedFilteredCloud);
+			baseDistKF.filterCurrentDistance(dt, closestBasePoint, newMeas);
+			baseDistKF.publish();
+			pcl_pub_sub.publishBaseDistance(closestBasePoint);
 	    }
 	    catch ( tf::TransformException ex ){
 			ROS_ERROR("%s",ex.what());
 			ros::Duration(1.0).sleep();
 	    }
+
+		pcl_pub_sub.resetNewMeasurementFlag();
 	}
 }
 /*

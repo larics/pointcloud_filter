@@ -19,6 +19,16 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 PC_PUB_SUB::~PC_PUB_SUB() 
 {
 }
+ 
+void PC_PUB_SUB::resetNewMeasurementFlag()
+{
+       _newMeasurement = false;
+}
+
+bool PC_PUB_SUB::newMeasurementRecieved()
+{
+       return _newMeasurement;
+}
 
 void PC_PUB_SUB::registerPointCloudSubscriber(string topic) 
 {
@@ -56,6 +66,7 @@ void PC_PUB_SUB::rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr&
 	pcl::fromROSMsg(*ros_msg, *pcl_msg);
 
 	this->organizedCloudPtr = pcl_msg;
+	_newMeasurement = true;
 }
 
 void PC_PUB_SUB::rosNContoursCallback(const std_msgs::Int32::Ptr& ros_msg) 

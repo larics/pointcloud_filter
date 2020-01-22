@@ -39,6 +39,7 @@ void initializeParameters(ros::NodeHandle& nh)
     double kalmanNoiseMv;
     double kalmanNoisePos;
     double kalmanNoiseVel;
+    std::cout << _ns << "/kalman/noise_mv" << std::endl;
     bool initialized = 
         nh.getParam(_ns + "/kalman/noise_mv", kalmanNoiseMv) &&
         nh.getParam(_ns + "/kalman/noise_pos", kalmanNoisePos) &&

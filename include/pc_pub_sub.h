@@ -59,6 +59,8 @@ class PC_PUB_SUB
 		void registerBaseDistancePublisher(string topic);
 
 		void rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg);
+		void resetNewMeasurementFlag();
+		bool newMeasurementRecieved();
 		void rosMaskImageCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg);
 		void rosNContoursCallback(const std_msgs::Int32::Ptr& ros_msg);
 
@@ -83,6 +85,7 @@ class PC_PUB_SUB
 		pcl::PointCloud<pcl::PointXYZ>::Ptr organizedCloudPtr;
 		vector< vector <int>> mask;
 		double closest_point_distance;
+		bool _newMeasurement = false;
 };
 
 #endif /* PC_PUB_SUB_H_ */

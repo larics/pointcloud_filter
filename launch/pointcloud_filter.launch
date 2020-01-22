@@ -1,0 +1,6 @@
+<launch>
+  <node name="pc_filter" pkg ="pointcloud_filter" type="pointcloud_filter">
+    <rosparam command="load"  file="$(find pointcloud_filter)/config/kalman_params.yaml" />
+  </node>
+</launch>
+

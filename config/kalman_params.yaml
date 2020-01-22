@@ -1,0 +1,11 @@
+closest_distance:
+  kalman:
+    noise_mv: 10
+    noise_pos: 1
+    noise_vel: 1
+
+base_distance:
+  kalman:
+    noise_mv: 10
+    noise_pos: 1
+    noise_vel: 1
