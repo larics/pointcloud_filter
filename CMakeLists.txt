@@ -5,7 +5,13 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
+  dynamic_reconfigure
 )
+
+generate_dynamic_reconfigure_options(
+	config/BrickDistanceParameters.cfg
+)
+
 
 find_package(PCL 1.7 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -30,6 +36,7 @@ add_executable(pointcloud_filter
   src/pc_pub_sub.cpp
   src/pointcloud_filter.cpp
 )
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(
 	pointcloud_filter
