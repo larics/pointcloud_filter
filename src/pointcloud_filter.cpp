@@ -62,8 +62,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		// filteredCloud = doOutlierFiltering(filteredCloud, nodeHandle);
 
 		patchCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getPatchMask());
-        	patchCloud = removeNaNValues(patchCloud);
-        	patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
+		patchCloud = removeNaNValues(patchCloud);
+		patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances, patchCentroid;
@@ -101,7 +101,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		tf::StampedTransform temp_trans;
 
-		pcl_pub_sub.publishPointCloud(filteredCloud, filteredCloud->header.frame_id);
+		pcl_pub_sub.publishPointCloud(patchCloud, patchCloud->header.frame_id);
 		pcl_pub_sub.publishBaseDistance( minDistances[0] );
 	}
 }

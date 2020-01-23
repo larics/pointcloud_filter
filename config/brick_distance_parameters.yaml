@@ -22,6 +22,6 @@ centroid_y:
 
 centroid_z:
     kalman:
-        noise_mv: 300
+        noise_mv: 10
         noise_pos: 1
         noise_vel: 1
