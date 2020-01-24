@@ -57,6 +57,8 @@ class PC_PUB_SUB
 		void registerPointCloudPublisher(string topic);
 		void registerDistancePublisher(string topic);
 		void registerBaseDistancePublisher(string topic);
+		void registerBaseMaxZPublisher();
+		void registerClosestPointZPublisher();
 
 		void rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg);
 		void resetNewMeasurementFlag();
@@ -69,6 +71,8 @@ class PC_PUB_SUB
 		
 		void publishDistance(double distance); 
 		void publishBaseDistance(double distance); 
+		void publishBaseBiggestZ(double z);
+		void publishClosestPointZ(double z);
 			
 		pcl::PointCloud<pcl::PointXYZ>::Ptr getOrganizedCloudPtr();
 		vector< vector <int>> getMask();
@@ -81,6 +85,8 @@ class PC_PUB_SUB
 		ros::Publisher pub_pc2_;
 		ros::Publisher pub_distance_;
 		ros::Publisher pub_base_distance_;
+		ros::Publisher pub_base_z_max_;
+		ros::Publisher pub_closest_point_z_;
 		
 		pcl::PointCloud<pcl::PointXYZ>::Ptr organizedCloudPtr;
 		vector< vector <int>> mask;

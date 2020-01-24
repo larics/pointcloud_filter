@@ -14,6 +14,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 	registerPointCloudPublisher(filtered_pointcloud_pub_topic);
 	registerDistancePublisher(closest_point_distance_pub_topic);
 	registerBaseDistancePublisher(closest_point_base_distance_pub_topic);
+	registerBaseMaxZPublisher();
+	registerClosestPointZPublisher();
 }
 
 PC_PUB_SUB::~PC_PUB_SUB() 
@@ -46,16 +48,26 @@ void PC_PUB_SUB::registerNContoursSubscriber()
 
 void PC_PUB_SUB::registerPointCloudPublisher(string topic) 
 {
-	pub_pc2_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(topic, 1000);
+	pub_pc2_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(topic, 1);
 }
 void PC_PUB_SUB::registerDistancePublisher(string topic)
 {
-	pub_distance_ = nodeHandle_.advertise<std_msgs::Float32>(topic, 1000);
+	pub_distance_ = nodeHandle_.advertise<std_msgs::Float32>(topic, 1);
 }
 void PC_PUB_SUB::registerBaseDistancePublisher(string topic)
 {
-	pub_base_distance_ = nodeHandle_.advertise<std_msgs::Float32>(topic, 1000);
+	pub_base_distance_ = nodeHandle_.advertise<std_msgs::Float32>(topic, 1);
 }
+void PC_PUB_SUB::registerBaseMaxZPublisher()
+{
+	pub_base_z_max_ = nodeHandle_.advertise<std_msgs::Float32>("/pc_filter/base_z_max", 1);
+}
+
+void PC_PUB_SUB::registerClosestPointZPublisher()
+{
+	pub_closest_point_z_ = nodeHandle_.advertise<std_msgs::Float32>("/pc_filter/closest_point_z", 1);
+}
+
 void PC_PUB_SUB::rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg) 
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_msg(new pcl::PointCloud<pcl::PointXYZ>);
@@ -139,4 +151,20 @@ void PC_PUB_SUB::publishBaseDistance(double distance)
 
 	msg->data = distance;
 	pub_base_distance_.publish(*msg);
+}
+
+void PC_PUB_SUB::publishBaseBiggestZ(double z) 
+{
+	std_msgs::Float32::Ptr msg(new std_msgs::Float32);
+
+	msg->data = z;
+	pub_base_z_max_.publish(*msg);
+}
+
+void PC_PUB_SUB::publishClosestPointZ(double z) 
+{
+	std_msgs::Float32::Ptr msg(new std_msgs::Float32);
+
+	msg->data = z;
+	pub_closest_point_z_.publish(*msg);
 }

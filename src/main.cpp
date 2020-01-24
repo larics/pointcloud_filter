@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 
 	// ------------ realsense ----------------
 	string pointcloud_sub_topic = "/erl_husky/camera/depth_registered/points";
-	string mask_sub_topic = "/erl_husky/red/red_color_filter/brick_mask/compressed";
+	string mask_sub_topic = "/erl_husky/red/red_color_filter/current_patch/compressed";
 	string filtered_pointcloud_pub_topic = "/pc_filter/points";
 	string closest_point_distance_pub_topic = "/pc_filter/closest_point_distance";
 	string closest_point_base_distance_pub_topic = "/pc_filter/base_closest_point_distance";

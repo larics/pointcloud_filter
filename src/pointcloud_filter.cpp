@@ -52,19 +52,28 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		if (pcl_pub_sub.nContours == 0) {
-			double closestDistance = findClosestDistance(originalCloud);
-			closestDistKF.filterCurrentDistance(dt, closestDistance, newMeas);
-			pcl_pub_sub.publishDistance( closestDistance );
+
+			//double closestDistance = findClosestDistance(originalCloud);
+			double closest_point_distance, closest_point_z;
+			findClosestDistanceAndClosestPointZ(originalCloud, closest_point_distance, closest_point_z);
+
+			closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
+			pcl_pub_sub.publishDistance( closest_point_distance );
+			pcl_pub_sub.publishClosestPointZ( closest_point_z );
 		}
 		else {
-			double filteredDistance = findClosestDistance(filteredCloud);
-			closestDistKF.filterCurrentDistance(dt, filteredDistance, newMeas);
-			pcl_pub_sub.publishDistance( filteredDistance);
+			double closest_point_distance, closest_point_z;
+			findClosestDistanceAndClosestPointZ(filteredCloud, closest_point_distance, closest_point_z);
+
+			closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
+			pcl_pub_sub.publishDistance( closest_point_distance );
+			pcl_pub_sub.publishClosestPointZ( closest_point_z );
 		}
 		closestDistKF.publish();
 
 		pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
-		string goal_frame = "base_link";
+		//string goal_frame = "base_link";
+		string goal_frame = "base_footprint";
 
 		tf::StampedTransform temp_trans;
 
@@ -78,10 +87,15 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			pcl_pub_sub.publishPointCloud(transformedFilteredCloud, goal_frame);
 			//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
 			//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
-			double closestBasePoint = findClosestX(transformedFilteredCloud);
-			baseDistKF.filterCurrentDistance(dt, closestBasePoint, newMeas);
+			
+			//double closestBasePoint = findClosestX(transformedFilteredCloud);
+
+			double closest_x_base, biggest_z_base;
+			findClosestXAndBiggestZ(transformedFilteredCloud, closest_x_base, biggest_z_base); 
+			baseDistKF.filterCurrentDistance(dt, closest_x_base, newMeas);
 			baseDistKF.publish();
-			pcl_pub_sub.publishBaseDistance(closestBasePoint);
+			pcl_pub_sub.publishBaseDistance(closest_x_base);
+			pcl_pub_sub.publishBaseBiggestZ(biggest_z_base);
 	    }
 	    catch ( tf::TransformException ex ){
 			ROS_ERROR("%s",ex.what());
@@ -108,6 +122,7 @@ pcXYZ::Ptr PointcloudFilter::transformCloud(pcXYZ::Ptr inputCloud, string goal_f
 	return outputCloud;
 }
  */
+
 double PointcloudFilter::findClosestX(pcXYZ::Ptr inputCloud)
 {
 	double inf_x = 99999.9;
@@ -121,7 +136,73 @@ double PointcloudFilter::findClosestX(pcXYZ::Ptr inputCloud)
 			}
 		}
 	}
+	if (min_x == inf_x) {
+		return -1;
+	}
 	return min_x;
+}
+
+void PointcloudFilter::findClosestXAndBiggestZ(pcXYZ::Ptr inputCloud, double &min_x, double &max_z)
+{
+	double inf = 99999.9;
+	min_x = inf;
+	max_z = -1.0;
+	if(!inputCloud || inputCloud->points.size() == 0) {
+		min_x = -1.;
+		max_z = -1.;
+	}
+	else {
+		for (int i = 0; i < inputCloud->points.size(); i++) {
+			double x_i = inputCloud->points[i].x;
+			double z_i = inputCloud->points[i].z;
+			if (x_i < min_x) {
+				min_x = x_i;
+			}
+			if (z_i > max_z) {
+				max_z = z_i;
+			}
+		}
+	}
+	if (min_x == inf_x) {
+		min_x = -1;
+	}
+}
+
+void PointcloudFilter::findClosestDistanceAndClosestPointZ(pcXYZ::Ptr inputCloud, double &closest_point_distance, double &closest_point_z)
+{
+	double inf_distance = 99999.9;
+	double min_distance = inf_distance;
+	double min_x = 0.0;
+	double min_y = 0.0;
+	double min_z = 0.0;
+
+	if(!inputCloud || inputCloud->points.size() == 0){
+		closest_point_distance = -1;
+		closest_point_z = -1;
+	}
+
+	else {
+		for (int i = 0; i < inputCloud->points.size(); i++) {
+			double x = inputCloud->points[i].x;
+			double y = inputCloud->points[i].y;
+			double z = inputCloud->points[i].z;
+			double distance_i = sqrt ( x*x + y*y + z*z );
+			if (distance_i < min_distance) {
+				min_distance = distance_i;
+				min_x = x;
+				min_y = y;
+				min_z = z;
+			}
+		}
+	}
+
+	closest_point_distance = min_distance; 
+	closest_point_z = min_z;
+
+	if (min_distance == inf_distance) {
+		closest_point_distance = -1;
+		closest_point_z = -1;
+	}
 }
 
 double PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
@@ -148,6 +229,9 @@ double PointcloudFilter::findClosestDistance(pcXYZ::Ptr inputCloud)
 		}
 	}
 	//cout << "closest point: (" << min_x << ", " << min_y << ", " << min_z << ")" << endl << endl;
+	if (min_distance == inf_distance)
+		return -1.0;
+		
 	return min_distance;
 }
 
