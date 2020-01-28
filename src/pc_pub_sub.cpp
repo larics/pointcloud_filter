@@ -60,12 +60,12 @@ void PC_PUB_SUB::registerBaseDistancePublisher(string topic)
 }
 void PC_PUB_SUB::registerBaseMaxZPublisher()
 {
-	pub_base_z_max_ = nodeHandle_.advertise<std_msgs::Float32>("/pc_filter/base_z_max", 1);
+	pub_base_z_max_ = nodeHandle_.advertise<std_msgs::Float32>("pc_filter/base_z_max", 1);
 }
 
 void PC_PUB_SUB::registerClosestPointZPublisher()
 {
-	pub_closest_point_z_ = nodeHandle_.advertise<std_msgs::Float32>("/pc_filter/closest_point_z", 1);
+	pub_closest_point_z_ = nodeHandle_.advertise<std_msgs::Float32>("pc_filter/closest_point_z", 1);
 }
 
 void PC_PUB_SUB::rosPointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& ros_msg) 

@@ -23,17 +23,19 @@ void PointcloudFilter::filter ( int argc, char** argv,
 							closest_point_distance_pub_topic, closest_point_base_distance_pub_topic, 
 							mask_sub_topic);
 	const double rate = 50;
-	const double dt = 1.0 / rate;
+	const double dt = 1.0 / 9.0;
 	ros::Rate loop_rate(rate);
 
 	tf::TransformListener tf_listener;
 
 	ros::Duration(3.0).sleep();
-	KalmanDetection closestDistKF("/closest_distance");
-	KalmanDetection baseDistKF("/base_distance");
+	KalmanDetection closestDistKF( ros::this_node::getNamespace() + "/camera_closest_distance");
+	KalmanDetection baseDistKF( ros::this_node::getNamespace() + "/base_closest_x");
+	KalmanDetection baseZKF( ros::this_node::getNamespace() + "/base_max_z");
 
 	closestDistKF.initializeParameters(nodeHandle);
 	baseDistKF.initializeParameters(nodeHandle);
+	baseZKF.initializeParameters(nodeHandle);
 	
 	while(nodeHandle.ok())
 	{
@@ -54,8 +56,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		if (pcl_pub_sub.nContours == 0) {
 
 			//double closestDistance = findClosestDistance(originalCloud);
-			double closest_point_distance, closest_point_z;
-			findClosestDistanceAndClosestPointZ(originalCloud, closest_point_distance, closest_point_z);
+			double closest_point_distance = -1.0;
+			double closest_point_z = -1.0;
 
 			closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
 			pcl_pub_sub.publishDistance( closest_point_distance );
@@ -95,6 +97,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			baseDistKF.filterCurrentDistance(dt, closest_x_base, newMeas);
 			baseDistKF.publish();
 			pcl_pub_sub.publishBaseDistance(closest_x_base);
+			baseZKF.filterCurrentDistance(dt, biggest_z_base, newMeas);
+			baseZKF.publish();
 			pcl_pub_sub.publishBaseBiggestZ(biggest_z_base);
 	    }
 	    catch ( tf::TransformException ex ){
@@ -163,7 +167,7 @@ void PointcloudFilter::findClosestXAndBiggestZ(pcXYZ::Ptr inputCloud, double &mi
 			}
 		}
 	}
-	if (min_x == inf_x) {
+	if (min_x == inf) {
 		min_x = -1;
 	}
 }
