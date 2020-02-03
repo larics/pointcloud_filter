@@ -1,5 +1,5 @@
 <launch>
-    <arg name="namespace" default="red"/>
+    <arg name="namespace" default="$(env UAV_NAMESPACE)"/>
     
     <arg name="depth_topic" default="camera/depth_registered/points"/>
     <arg name="camera_topic" default="red_color_filter/brick_mask/compressed"/>
