@@ -3,7 +3,7 @@
     
     <arg name="depth_topic" default="camera/depth_registered/points"/>
     <arg name="camera_topic" default="red_color_filter/brick_mask/compressed"/>
-    <arg name="patch_topic" default="red_color_filter/patch_circle/compressed"/>a
+    <arg name="patch_topic" default="red_color_filter/patch_circle/compressed"/>
 
     
 
@@ -11,7 +11,7 @@
         <remap from="/erl_husky/camera/depth_registered/points" to="$(arg depth_topic)"/>
         <remap from="/color_filter/brick_mask/compressed" to="$(arg camera_topic)"/>
         <remap from="/color_filter/nContours" to="red_color_filter/nContours"/>
-	<remap from="/red/pointcloud_filter/patch_mask_sub_topic" to="$(arg patch_topic)" />
+	<remap from="/$(arg namespace)/pointcloud_filter/patch_mask_sub_topic" to="$(arg patch_topic)" />
         <rosparam command="load"  file="$(find pointcloud_filter)/config/brick_distance_parameters.yaml"/>
     </node>
 </launch>
