@@ -16,6 +16,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 	registerBaseDistancePublisher(closest_point_base_distance_pub_topic);
 	registerBaseMaxZPublisher();
 	registerClosestPointZPublisher();
+	sub_current_brick_color_ = nodeHandle_.subscribe("/brick_color", 1, &PC_PUB_SUB::currentBrickColorCallback, this);
+	current_brick_color_ = "r";
 }
 
 PC_PUB_SUB::~PC_PUB_SUB() 
@@ -167,4 +169,50 @@ void PC_PUB_SUB::publishClosestPointZ(double z)
 
 	msg->data = z;
 	pub_closest_point_z_.publish(*msg);
+}
+
+void PC_PUB_SUB::currentBrickColorCallback(const std_msgs::String& ros_msgs )
+{
+  std::string new_brick_color = ros_msgs.data;
+  if (new_brick_color != current_brick_color_) {
+
+    string new_color, old_color;
+    if (current_brick_color_ == "r") {
+      old_color = "red";
+    }
+    else if (current_brick_color_ == "g") {
+      old_color = "green";
+    }
+    else if (current_brick_color_ == "b") {
+      old_color = "blue";
+    }
+
+    current_brick_color_ = ros_msgs.data;
+
+    if (current_brick_color_ == "r") {
+      new_color = "red";
+    }
+    else if (current_brick_color_ == "g") {
+      new_color = "green";
+    }
+    else if (current_brick_color_ == "b") {
+      new_color = "blue";
+    }
+
+	cout << "old color = " << old_color << ", new color = " << new_color << endl;
+	string current_topic = sub_mask_.getTopic();
+
+	cout << "old_topic1 = " << current_topic << endl << endl;
+
+	string old_header = "/erl_husky/" + old_color + "/" + old_color;  
+	string new_header = "/erl_husky/" + new_color + "/" + new_color;  
+
+	current_topic.replace(current_topic.find(old_header), old_header.length(), new_header);
+	
+	sub_mask_.shutdown();
+	sub_mask_ = nodeHandle_.subscribe(current_topic, 1, &PC_PUB_SUB::rosMaskImageCallback, this);
+	cout << "new_topic = " << current_topic << endl << endl;
+
+  }
+  std::cout << "curr brick color = " << current_brick_color_ << std::endl;
 }

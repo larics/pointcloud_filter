@@ -11,6 +11,7 @@
 #include "geometry_msgs/PointStamped.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/Int32.h"
+#include "std_msgs/String.h"
 
 #include <pcl_ros/point_cloud.h>
 
@@ -65,6 +66,7 @@ class PC_PUB_SUB
 		bool newMeasurementRecieved();
 		void rosMaskImageCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg);
 		void rosNContoursCallback(const std_msgs::Int32::Ptr& ros_msg);
+		void currentBrickColorCallback(const std_msgs::String& ros_msgs);
 
 		void publishPointCloud(
 			pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud, string camera_frame);
@@ -82,6 +84,8 @@ class PC_PUB_SUB
 		ros::Subscriber sub_pc2_;
 		ros::Subscriber sub_mask_;
 		ros::Subscriber sub_nContours_;
+		ros::Subscriber sub_current_brick_color_;
+
 		ros::Publisher pub_pc2_;
 		ros::Publisher pub_distance_;
 		ros::Publisher pub_base_distance_;
@@ -92,6 +96,7 @@ class PC_PUB_SUB
 		vector< vector <int>> mask;
 		double closest_point_distance;
 		bool _newMeasurement = false;
+		string current_brick_color_;
 };
 
 #endif /* PC_PUB_SUB_H_ */
