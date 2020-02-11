@@ -63,7 +63,9 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		patchCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getPatchMask());
 		patchCloud = removeNaNValues(patchCloud);
-		patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
+		if (!patchCloud->empty()) {
+			patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
+		}
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances, patchCentroid;

@@ -92,7 +92,7 @@ void filterCurrentDistance(double dt, double currDistance, bool newMeasurementFl
     // Check if initialization failed
     if (!_kalmanInitialized && currDistance == NO_DISTANCE_DETECTED)
     {
-        ROS_WARN("KalmanFilter - Failed to initialize");
+        ROS_WARN_THROTTLE(5.0, "KalmanFilter - Failed to initialize");
         return;
     }
 
