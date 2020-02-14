@@ -1,0 +1,17 @@
+camera_closest_distance:
+  kalman:
+    noise_mv: 10
+    noise_pos: 1
+    noise_vel: 1
+
+base_closest_x:
+  kalman:
+    noise_mv: 10
+    noise_pos: 1
+    noise_vel: 2
+
+base_max_z:
+  kalman:
+    noise_mv: 10
+    noise_pos: 1
+    noise_vel: 3

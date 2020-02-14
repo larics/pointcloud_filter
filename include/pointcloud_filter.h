@@ -23,7 +23,8 @@ namespace PointcloudFilter {
 
 	void filter ( int argc, char** argv, 
 				string pointcloud_sub_topic, 
-				string mask_sub_topic, 
+				string mask_sub_topic_brick, 
+				string mask_sub_topic_patch, 
 				string filtered_pointcloud_pub_topic, 
 				string closest_point_distance_pub_topic,
 				string closest_point_base_distance_pub_topic,

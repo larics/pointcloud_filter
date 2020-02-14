@@ -1,12 +1,10 @@
 <launch>
-  <rosparam command="load"  file="$(find pointcloud_filter)/config/kalman_params.yaml" ns = "patch_filter"/>
-  <node name="pc_filter" pkg ="pointcloud_filter" type="pointcloud_filter" ns = "patch_filter" output="screen">
-    <remap from="/mask/compressed" to="/erl_husky/red/red_color_filter/current_patch/compressed"/>
+  <rosparam command="load"  file="$(find pointcloud_filter)/config/kalman_params.yaml" ns = "brick_patch_filter/brick_filter"/>
+  <rosparam command="load"  file="$(find pointcloud_filter)/config/kalman_params_patch.yaml" ns = "brick_patch_filter/patch_filter"/>
+  <node name="pc_filter" pkg ="pointcloud_filter" type="pointcloud_filter" ns = "brick_patch_filter" output="screen">
+    <remap from="/patch_mask/compressed" to="/erl_husky/red/red_color_filter/current_patch/compressed"/>
+    <remap from="/brick_mask/compressed" to="/erl_husky/red/red_color_filter/brick_mask/compressed"/>
   </node>
 
-  <rosparam command="load"  file="$(find pointcloud_filter)/config/kalman_params.yaml" ns = "brick_filter"/>
-  <node name="pc_filter" pkg ="pointcloud_filter" type="pointcloud_filter" ns = "brick_filter">
-    <remap from="/mask/compressed" to="/erl_husky/red/red_color_filter/brick_mask/compressed"/>
-  </node>
 </launch>
 

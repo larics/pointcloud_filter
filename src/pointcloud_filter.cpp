@@ -10,7 +10,8 @@
 
 void PointcloudFilter::filter ( int argc, char** argv, 
 								string pointcloud_sub_topic, 
-								string mask_sub_topic, 
+								string mask_sub_topic_brick, 
+								string mask_sub_topic_patch, 
 								string filtered_pointcloud_pub_topic, 
 								string closest_point_distance_pub_topic,
 								string closest_point_base_distance_pub_topic,
@@ -21,7 +22,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 	PC_PUB_SUB pcl_pub_sub(	nodeHandle, pointcloud_sub_topic, filtered_pointcloud_pub_topic, 
 							closest_point_distance_pub_topic, closest_point_base_distance_pub_topic, 
-							mask_sub_topic);
+							mask_sub_topic_brick, mask_sub_topic_patch);
 	const double rate = 50;
 	const double dt = 1.0 / 9.0;
 	ros::Rate loop_rate(rate);
@@ -29,84 +30,160 @@ void PointcloudFilter::filter ( int argc, char** argv,
 	tf::TransformListener tf_listener;
 
 	ros::Duration(3.0).sleep();
-	KalmanDetection closestDistKF( ros::this_node::getNamespace() + "/camera_closest_distance");
-	KalmanDetection baseDistKF( ros::this_node::getNamespace() + "/base_closest_x");
-	KalmanDetection baseZKF( ros::this_node::getNamespace() + "/base_max_z");
+	KalmanDetection closestDistKF( ros::this_node::getNamespace() +  "/brick_filter/camera_closest_distance");
+	KalmanDetection baseDistKF( ros::this_node::getNamespace() + "/brick_filter/base_closest_x");
+	KalmanDetection baseZKF( ros::this_node::getNamespace() + "/brick_filter/base_max_z");
 
 	closestDistKF.initializeParameters(nodeHandle);
 	baseDistKF.initializeParameters(nodeHandle);
 	baseZKF.initializeParameters(nodeHandle);
-	
+
+	KalmanDetection closestDistKFpatch( ros::this_node::getNamespace() + "/patch_filter/camera_closest_distance");
+	KalmanDetection baseDistKFpatch( ros::this_node::getNamespace() + "/patch_filter/base_closest_x");
+	KalmanDetection baseZKFpatch( ros::this_node::getNamespace() + "/patch_filter/base_max_z");
+
+	closestDistKFpatch.initializeParameters(nodeHandle);
+	baseDistKFpatch.initializeParameters(nodeHandle);
+	baseZKFpatch.initializeParameters(nodeHandle);
+
 	while(nodeHandle.ok())
 	{
 		ros::spinOnce();
 		loop_rate.sleep();
 		
-		pcXYZ::Ptr originalCloud = pcl_pub_sub.getOrganizedCloudPtr();
+		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
+		if(!newMeas) continue;
 
+		pcXYZ::Ptr originalCloud = pcl_pub_sub.getOrganizedCloudPtr();
 		if(!originalCloud || originalCloud->points.size() == 0) continue;
 
 		pcXYZ::Ptr filteredCloud ( new pcXYZ );
 
-		filteredCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
-		filteredCloud = removeNaNValues(filteredCloud);
+		vector < vector<int>> mask_brick, mask_patch;
+		pcl_pub_sub.getMask(mask_brick, mask_patch);
 
-		bool newMeas = pcl_pub_sub.newMeasurementRecieved();
-		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
-		if (pcl_pub_sub.nContours == 0) {
+		if (pcl_pub_sub.calc_brick_ || (pcl_pub_sub.calc_patch_ && (pcl_pub_sub.nPatches == 0))) {
+			filteredCloud = removeNonMaskValues(originalCloud, mask_brick);
+			filteredCloud = removeNaNValues(filteredCloud);
 
-			//double closestDistance = findClosestDistance(originalCloud);
-			double closest_point_distance = -1.0;
-			double closest_point_z = -1.0;
+			if (pcl_pub_sub.nContours == 0) {
+				double closest_point_distance = -1.0;
+				double closest_point_z = -1.0;
+				closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
+				pcl_pub_sub.publishDistance( closest_point_distance );
+				pcl_pub_sub.publishClosestPointZ( closest_point_z );
+			}
+			else {
+				double closest_point_distance, closest_point_z;
+				findClosestDistanceAndClosestPointZ(filteredCloud, closest_point_distance, closest_point_z);
+				closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
+				pcl_pub_sub.publishDistance( closest_point_distance );
+				pcl_pub_sub.publishClosestPointZ( closest_point_z );
+			}
+			closestDistKF.publish();
 
-			closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
-			pcl_pub_sub.publishDistance( closest_point_distance );
-			pcl_pub_sub.publishClosestPointZ( closest_point_z );
+			pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
+			string goal_frame = "base_footprint";
+
+			tf::StampedTransform temp_trans;
+
+			try 
+			{
+				tf_listener.lookupTransform( 	goal_frame, filteredCloud->header.frame_id, 
+												ros::Time(0), temp_trans );
+				pcl_ros::transformPointCloud(*filteredCloud, *transformedFilteredCloud, temp_trans);
+				double closest_x_base, biggest_z_base;
+				findClosestXAndBiggestZ(transformedFilteredCloud, closest_x_base, biggest_z_base); 
+				baseDistKF.filterCurrentDistance(dt, closest_x_base, newMeas);
+				baseDistKF.publish();
+				pcl_pub_sub.publishBaseDistance(closest_x_base);
+				baseZKF.filterCurrentDistance(dt, biggest_z_base, newMeas);
+				baseZKF.publish();
+				pcl_pub_sub.publishBaseBiggestZ(biggest_z_base);
+			}
+			catch ( tf::TransformException ex ){
+				ROS_ERROR("%s",ex.what());
+				ros::Duration(1.0).sleep();
+			}
+
+			pcl_pub_sub.resetNewMeasurementFlag();
+
+		}
+
+		else if (pcl_pub_sub.calc_patch_) {
+			filteredCloud = removeNonMaskValues(originalCloud, mask_patch);
+			filteredCloud = removeNaNValues(filteredCloud);
+
+			if (pcl_pub_sub.nPatches == 0) {
+				double closest_point_distance = -1.0;
+				double closest_point_z = -1.0;
+				closestDistKFpatch.filterCurrentDistance(dt, closest_point_distance, newMeas);
+				pcl_pub_sub.publishDistance( closest_point_distance , "patch");
+				pcl_pub_sub.publishClosestPointZ( closest_point_z, "patch" );
+			}
+			else {
+				double closest_point_distance, closest_point_z;
+				findClosestDistanceAndClosestPointZ(filteredCloud, closest_point_distance, closest_point_z);
+				closestDistKFpatch.filterCurrentDistance(dt, closest_point_distance, newMeas);
+				pcl_pub_sub.publishDistance( closest_point_distance, "patch");
+				pcl_pub_sub.publishClosestPointZ( closest_point_z, "patch");
+			}
+			closestDistKFpatch.publish();
+
+			pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
+			string goal_frame = "base_footprint";
+
+			tf::StampedTransform temp_trans;
+
+			try 
+			{
+				tf_listener.lookupTransform(goal_frame, filteredCloud->header.frame_id, 
+												ros::Time(0), temp_trans );
+				pcl_ros::transformPointCloud(*filteredCloud, *transformedFilteredCloud, temp_trans);
+				double closest_x_base, biggest_z_base;
+				findClosestXAndBiggestZ(transformedFilteredCloud, closest_x_base, biggest_z_base); 
+				baseDistKFpatch.filterCurrentDistance(dt, closest_x_base, newMeas);
+				baseDistKFpatch.publish();
+				pcl_pub_sub.publishBaseDistance(closest_x_base, "patch");
+				baseZKFpatch.filterCurrentDistance(dt, biggest_z_base, newMeas);
+				baseZKFpatch.publish();
+				pcl_pub_sub.publishBaseBiggestZ(biggest_z_base, "patch");
+			}
+			catch ( tf::TransformException ex ){
+				ROS_ERROR("%s",ex.what());
+				ros::Duration(1.0).sleep();
+			}
+
+			pcl_pub_sub.resetNewMeasurementFlag();
 		}
 		else {
-			double closest_point_distance, closest_point_z;
-			findClosestDistanceAndClosestPointZ(filteredCloud, closest_point_distance, closest_point_z);
+			double not_interested = -1.0;
 
-			closestDistKF.filterCurrentDistance(dt, closest_point_distance, newMeas);
-			pcl_pub_sub.publishDistance( closest_point_distance );
-			pcl_pub_sub.publishClosestPointZ( closest_point_z );
-		}
-		closestDistKF.publish();
+			closestDistKF.filterCurrentDistance(dt, not_interested, newMeas);
+			pcl_pub_sub.publishDistance( not_interested );
+			pcl_pub_sub.publishClosestPointZ( not_interested );
 
-		pcXYZ::Ptr transformedFilteredCloud ( new pcXYZ );
-		//string goal_frame = "base_link";
-		string goal_frame = "base_footprint";
-
-		tf::StampedTransform temp_trans;
-
-		try 
-		{
-	    	tf_listener.lookupTransform( 	goal_frame, filteredCloud->header.frame_id, 
-	      									ros::Time(0), temp_trans );
-	    	pcl_ros::transformPointCloud(*filteredCloud, *transformedFilteredCloud, temp_trans);
-		
-
-			pcl_pub_sub.publishPointCloud(transformedFilteredCloud, goal_frame);
-			//pcl_pub_sub.publishPointCloud(filteredCloud, goal_frame);
-			//pcl_pub_sub.publishDistance( findClosestDistance(filteredCloud) );
-			
-			//double closestBasePoint = findClosestX(transformedFilteredCloud);
-
-			double closest_x_base, biggest_z_base;
-			findClosestXAndBiggestZ(transformedFilteredCloud, closest_x_base, biggest_z_base); 
-			baseDistKF.filterCurrentDistance(dt, closest_x_base, newMeas);
+			baseDistKF.filterCurrentDistance(dt, not_interested, newMeas);
 			baseDistKF.publish();
-			pcl_pub_sub.publishBaseDistance(closest_x_base);
-			baseZKF.filterCurrentDistance(dt, biggest_z_base, newMeas);
+			pcl_pub_sub.publishBaseDistance(not_interested);
+			baseZKF.filterCurrentDistance(dt, not_interested, newMeas);
 			baseZKF.publish();
-			pcl_pub_sub.publishBaseBiggestZ(biggest_z_base);
-	    }
-	    catch ( tf::TransformException ex ){
-			ROS_ERROR("%s",ex.what());
-			ros::Duration(1.0).sleep();
-	    }
+			pcl_pub_sub.publishBaseBiggestZ(not_interested);
 
-		pcl_pub_sub.resetNewMeasurementFlag();
+			closestDistKFpatch.filterCurrentDistance(dt, not_interested, newMeas);
+			pcl_pub_sub.publishDistance( not_interested , "patch");
+			pcl_pub_sub.publishClosestPointZ( not_interested, "patch" );
+
+			baseDistKFpatch.filterCurrentDistance(dt, not_interested, newMeas);
+			baseDistKFpatch.publish();
+			pcl_pub_sub.publishBaseDistance(not_interested, "patch");
+			baseZKFpatch.filterCurrentDistance(dt, not_interested, newMeas);
+			baseZKFpatch.publish();
+			pcl_pub_sub.publishBaseBiggestZ(not_interested, "patch");
+		}
+
+
+
 	}
 }
 /*
@@ -260,6 +337,7 @@ pcXYZ::Ptr PointcloudFilter::removeNaNValues ( pcXYZ::Ptr inputCloud )
 	pcl::removeNaNFromPointCloud ( *inputCloud, *tempCloud, indices );
 	return tempCloud;
 }
+
 pcXYZ::Ptr PointcloudFilter::removeNonMaskValues( pcXYZ::Ptr inputCloud, 
 												vector <vector <int>> mask )
 {
