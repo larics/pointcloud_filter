@@ -179,8 +179,8 @@ void PC_PUB_SUB::smStateCallback(const std_msgs::String& ros_msg)
   std::string sm_state = ros_msg.data;
 
   if (sm_state == "husky_servo_color") {
-	  calc_brick_ = true;
-	  calc_patch_ = false;
+	calc_brick_ = true;
+	calc_patch_ = true;
   }
   else if ((sm_state == "husky_servo_patch") || (sm_state == "schunk_repeat_servo") || (sm_state == "schunk_servo_pickup")) {
 	  calc_brick_ = false;

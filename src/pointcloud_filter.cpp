@@ -110,7 +110,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		}
 
-		else if (pcl_pub_sub.calc_patch_) {
+		if ((pcl_pub_sub.calc_patch_) && (pcl_pub_sub.nPatches > 0)) {
 			filteredCloud = removeNonMaskValues(originalCloud, mask_patch);
 			filteredCloud = removeNaNValues(filteredCloud);
 
@@ -181,7 +181,6 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			baseZKFpatch.publish();
 			pcl_pub_sub.publishBaseBiggestZ(not_interested, "patch");
 		}
-
 
 
 	}
