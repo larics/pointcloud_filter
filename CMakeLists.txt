@@ -5,7 +5,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   tf
-  dynamic_reconfigure
+	dynamic_reconfigure
+	roslib
 )
 
 generate_dynamic_reconfigure_options(

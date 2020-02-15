@@ -14,6 +14,10 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/registration/icp.h>
+#include <pcl/PointIndices.h>
+#include "pcl/common/impl/centroid.hpp"
+#include <pcl/io/ply_io.h>
+#include <ros/package.h>
 
 namespace detection
 {
@@ -37,14 +41,67 @@ WallDetection(ros::NodeHandle& t_nh) :
   m_handlerMapCloud(t_nh, "submap_cloud")
 {
   initialize_parameters(t_nh);
-  m_pubTestCloud = t_nh.advertise<ROSCloud>("dummy_cloud", 1);
+  m_pubFilteredCloud = t_nh.advertise<ROSCloud>("filtered_cloud", 1);
+  m_pubTargetCloud = t_nh.advertise<ROSCloud>("target_cloud", 1);
+  m_pubAlignedCloud = t_nh.advertise<ROSCloud>("aligned_cloud", 1);
   m_loopTimer = t_nh.createTimer(0.5, 
     &WallDetection::loop_event,
     this
   );
+
+  m_targetWallCloud = boost::make_shared<PCLoud>();
+  wall_from_ply(m_targetWallCloud, "config/zid_tanko_upscale.ply");
 }
 
 private:
+
+void do_icp(const PCLoud::Ptr& t_inputCloud)
+{
+  if (t_inputCloud->empty())
+  {
+    ROS_WARN_THROTTLE(5.0, "WallDetection::do_icp - empty cloud");
+    return;
+  }
+
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+  icp.setInputSource(t_inputCloud);
+  icp.setInputTarget(m_targetWallCloud);
+  auto alignedCloud = boost::make_shared<PCLoud>();
+  icp.align(*alignedCloud);
+  ROS_INFO_COND(icp.hasConverged(), "WallDetection::do_icp - ICP converged. Score: [%.2f]", icp.getFitnessScore());
+  ROS_FATAL_COND(!icp.hasConverged(), "WallDetection::do_icp - ICP did not converge. :(");
+  ROS_INFO_STREAM("ICP transformation: " << icp.getFinalTransformation());
+  publish_cloud(alignedCloud, m_pubAlignedCloud);
+}
+
+void wall_from_ply(PCLoud::Ptr& t_wallCloud, const std::string& plyPath)
+{
+  auto wallCloud = boost::make_shared<PCLoud>();
+  std::string path = ros::package::getPath("pointcloud_filter") + "/" + plyPath;
+  ROS_INFO("WallDetection - %s", path.c_str());
+  if (pcl::io::loadPLYFile(path, *wallCloud) == -1) {
+    ROS_FATAL("WallDetection - unable to load whe wall mesh, exiting...");
+    throw std::runtime_error("WallDetection - unable to load wall mesh");
+  }
+
+  for (const auto& point : wallCloud->points) {
+    t_wallCloud->points.push_back(pcl::PointXYZ(
+        point.x / 1000.0, point.y / 1000.0, point.z / 1000.0
+      )
+    );
+  }
+
+  for (double i = 0.01; i < 0.5; i+=0.05) {
+  for (double j = 0.01; j < 0.5; j+=0.05) {
+    for (const auto& point : wallCloud->points) {
+      t_wallCloud->points.push_back(pcl::PointXYZ(
+          point.x / 1000.0 + i, point.y / 1000.0 + j, point.z / 1000.0
+        )
+      );
+    }
+  }
+  }
+}
 
 void initialize_parameters(ros::NodeHandle& t_nh)
 {
@@ -60,11 +117,17 @@ void loop_event(const ros::TimerEvent& /*unused*/)
 	auto inputCloud = boost::make_shared<PCLoud>();
 	read_input_cloud(inputCloud);
   auto croppedCloud = filter_by_height(inputCloud);
-  publish_cloud(croppedCloud);
+  do_icp(croppedCloud);
+  publish_cloud(croppedCloud, m_pubFilteredCloud);
+  publish_cloud(m_targetWallCloud, m_pubTargetCloud);
 }
 
 PCLoud::Ptr filter_by_height(const PCLoud::ConstPtr& t_inputCloud)
 {
+  if (t_inputCloud->empty()) {
+    return boost::make_shared<PCLoud>();
+  }
+
   auto newCloud = boost::make_shared<PCLoud>();
   pcl::CropBox<pcl::PointXYZ> boxFilter;
   boxFilter.setMin(Eigen::Vector4f(
@@ -84,24 +147,31 @@ PCLoud::Ptr filter_by_height(const PCLoud::ConstPtr& t_inputCloud)
   return newCloud;
 }
 
+void iterative_closest_points()
+{
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+}
+
 inline void read_input_cloud(PCLoud::Ptr& t_inputCloud)
 {
   pcl::fromROSMsg(m_handlerMapCloud.getData(), *t_inputCloud);
 }
 
-void publish_cloud(const PCLoud::Ptr& t_inputCloud)
+void publish_cloud(const PCLoud::Ptr& t_inputCloud, ros::Publisher& t_pub)
 {
   auto rosMsg = boost::make_shared<ROSCloud>();
   pcl::toROSMsg(*t_inputCloud, *rosMsg);
   rosMsg->header.frame_id = ros::this_node::getNamespace() + "/map";
   rosMsg->header.stamp = ros::Time::now();
-  m_pubTestCloud.publish(*rosMsg);
+  t_pub.publish(*rosMsg);
 }
 
 ros::Timer m_loopTimer;
-ros::Publisher m_pubTestCloud;
+ros::Publisher m_pubFilteredCloud, m_pubTargetCloud, m_pubAlignedCloud;
 TopicHandler<ROSCloud> m_handlerMapCloud;
 std::shared_ptr<ParamHandler<DetectionConfig>> m_handlerParam;
+PCLoud::Ptr m_targetWallCloud;
+
 };
 
 }
