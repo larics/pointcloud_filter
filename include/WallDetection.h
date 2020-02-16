@@ -68,13 +68,19 @@ WallDetection(ros::NodeHandle& t_nh) :
 
 	image_transport::ImageTransport it(t_nh);
   m_pubPointCloudImage = it.advertise("cloud_image", 1);
+  m_pubResultImage = it.advertise("result_image", 1);
+  m_pubWallTargetImage = it.advertise("target_image", 1);
+
   m_loopTimer = t_nh.createTimer(0.5, 
     &WallDetection::loop_event,
     this
   );
 
   m_targetWallCloud = boost::make_shared<PCXYZ>();
-  wall_from_ply(m_targetWallCloud, "config/zid_single.ply");//"config/zid_tanko_upscale.ply");
+  wall_from_ply(m_targetWallCloud, "config/zid_tanko_upscale.ply"); //"config/zid_single.ply");
+  m_targetWallCloud = organize_pointcluod(m_targetWallCloud, 10, 10);
+  m_targetWallImage = PCXYZ_to_cvMat(m_targetWallCloud);
+  //cv::resize(m_targetWallImage, m_targetWallImage, cv::Size(), 0.25, 0.25);
 }
 
 private:
@@ -156,6 +162,11 @@ cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
     return cv::Mat();
   }
 
+  if (!t_inputCloud->isOrganized()) {
+    ROS_FATAL("PXCYZ_to_cvMAT - cannot convert an unorganized pointcloud");
+    return cv::Mat();
+  }
+
   ROS_INFO_COND(t_inputCloud->isOrganized(), "WallDetection::PCXYZ_to_cvMat - cloud is organized");
   ROS_INFO("Size: [%d, %d]", t_inputCloud->height, t_inputCloud->width);
   cv::Mat outImage(t_inputCloud->height, t_inputCloud->width, CV_8UC1, cv::Scalar(0));
@@ -165,13 +176,61 @@ cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
       if (point.x == 0 && point.y == 0 && point.z == 0) {
           continue;
       }
-      outImage.at<cv::Scalar>(y, x) = cv::Scalar(1);
+      outImage.at<uchar>(x, y) = 255;
+      neki_index_x = x;
+      neki_index_y = y;
     }
   }
   return outImage;
 }
 
-PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud)
+void template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_target8UC1)
+{
+  // First convert to floating point single channel
+  cv::Mat source32FC1(t_source8UC1.rows, t_source8UC1.cols, CV_32FC1),
+          target32FC1(t_target8UC1.rows, t_target8UC1.cols, CV_32FC1);
+  t_source8UC1.convertTo(source32FC1, CV_32FC1, 1.0 / 255.0, 0);
+  t_target8UC1.convertTo(target32FC1, CV_32FC1, 1.0 / 255.0, 0);
+
+  // Check if conversion is successfulCV_TM_SQDIFF_NORMED
+  std::cout << "float : " << (float)(source32FC1.at<float>(neki_index_x,neki_index_y)) << std::endl; //Prints 0 integer value
+  std::cout << "int : " << (int)(t_source8UC1.at<uchar>(neki_index_x,neki_index_y)) << std::endl; //prints 128 integer value
+
+  // for (int i = 0; i < target32FC1.rows; i++) {
+  //   for(int j = 0; j < target32FC1.cols; j++) {
+  //     std::cout << target32FC1.at<double>(i, j) << " ";
+  //   }
+  //   std::cout << "\n";
+  //   ros::Duration(0.25).sleep();
+  // }
+
+  // method: CV_TM_SQDIFF, CV_TM_SQDIFF_NORMED, CV_TM _CCORR, CV_TM_CCORR_NORMED, CV_TM_CCOEFF, CV_TM_CCOEFF_NORMED
+  int matchMethod = CV_TM_SQDIFF;
+  cv::Mat result32FC1; //(t_source8UC1.rows, t_source8UC1.cols, CV_32FC1);
+  cv::matchTemplate(source32FC1, target32FC1, result32FC1, matchMethod);
+  cv::normalize(result32FC1, result32FC1, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+
+  double minVal, maxVal; 
+  cv::Point minLoc, maxLoc, matchLoc;
+  cv::minMaxLoc(result32FC1, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat() );
+  if( matchMethod  == CV_TM_SQDIFF || matchMethod == CV_TM_SQDIFF_NORMED )  {
+    matchLoc = minLoc;
+  }
+  else {
+    matchLoc = maxLoc;
+  }
+  ROS_INFO("Match location [%.2f, %.2f]", matchLoc.x, matchLoc.y);
+
+  // Attempt to convert result to 8UC1 for publishing
+  cv::Mat result8UC1(result32FC1.rows, result32FC1.cols, CV_8UC1);
+  result32FC1.convertTo(result8UC1, CV_8UC1);
+  
+  publish_image(result8UC1, m_pubResultImage);
+  publish_image(t_target8UC1, m_pubWallTargetImage);
+}
+
+PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud, 
+  const int t_width = 100, const int t_height = 100, const int t_resolution = 15)
 {
   if (t_unorganizedCloud->empty()) {
     return t_unorganizedCloud;
@@ -181,8 +240,8 @@ PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud)
   pcl::getMinMax3D(*t_unorganizedCloud, minPoint, maxPoint);
   
   auto organizedCloud = boost::make_shared<PCXYZ>(
-    round(maxPoint.x - minPoint.x), 
-    round(maxPoint.y - minPoint.y), 
+    t_width * t_resolution, 
+    t_height * t_resolution, 
     pcl::PointXYZ(0, 0, 0)
   );
 
@@ -201,8 +260,8 @@ PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud)
     organizedCloud->height / 2.0
   );
   const auto add_to_organized_cloud = [&] (const pcl::PointXYZ& point) {
-    const std::size_t indX = round(point.x) + indexOffsetX;
-    const std::size_t indY = round(point.y) + indexOffsetY;
+    const std::size_t indX = round(point.x * t_resolution)  + indexOffsetX;
+    const std::size_t indY = round(point.y * t_resolution) + indexOffsetY;
     
     if (out_of_range(indX, indY)) {
       return;
@@ -301,6 +360,11 @@ void loop_event(const ros::TimerEvent& /*unused*/)
   inputCloud = demean_cloud(inputCloud);
   inputCloud = organize_pointcluod(inputCloud);
   auto image = PCXYZ_to_cvMat(inputCloud);
+  template_matching(image, m_targetWallImage);
+  // cv::Mat dst;
+  // cv::normalize(image, dst, 0, 1, cv::NORM_MINMAX);
+  // cv::imshow(cv::String("hello"),dst);
+  // cv::waitKey(0);
   // do_icp(inputCloud);
   publish_image(image, m_pubPointCloudImage);
   publish_cloud(inputCloud, m_pubFilteredCloud);
@@ -332,15 +396,8 @@ PCXYZ::Ptr crop_by_height(const PCXYZ::ConstPtr& t_inputCloud)
   return newCloud;
 }
 
-void publish_image(cv::Mat& t_image, image_transport::Publisher& t_pub)
-{
-  // std_msgs::Header header;
-  // header.frame_id = ros::this_node::getNamespace() + "/map";
-  // header.stamp = ros::Time::now();
-  // header.seq = m_handlerMapCloud.getData().header.seq;
-  // cv_bridge::CvImage bridgeImage(header, sensor_msgs::image_encodings::TYPE_8UC1, t_image);
-
-  cv_bridge::CvImage bridgeImage;
+void publish_image(const cv::Mat& t_image, image_transport::Publisher& t_pub)
+{  cv_bridge::CvImage bridgeImage;
   bridgeImage.header.frame_id = ros::this_node::getNamespace() + "/map";
   bridgeImage.header.stamp = ros::Time::now();
   bridgeImage.header.seq = m_handlerMapCloud.getData().header.seq;
@@ -367,12 +424,14 @@ ros::Timer m_loopTimer;
 Eigen::Vector4f m_lastFoundMapCentroid;
 double m_maxFitness = WallDetectionParameters::MAX_FIT;
 ros::Publisher m_pubFilteredCloud, m_pubTargetCloud, m_pubAlignedCloud, m_pubWallOdometry;
-image_transport::Publisher m_pubPointCloudImage;
+image_transport::Publisher m_pubPointCloudImage, m_pubResultImage, m_pubWallTargetImage;
 
 TopicHandler<ROSCloud> m_handlerMapCloud;
 std::shared_ptr<ParamHandler<DetectionConfig>> m_handlerParam;
 PCXYZ::Ptr m_targetWallCloud;
+cv::Mat m_targetWallImage;
 
+std::size_t neki_index_x, neki_index_y;
 };
 
 }
