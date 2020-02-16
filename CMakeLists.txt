@@ -7,6 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 	dynamic_reconfigure
 	roslib
+	cv_bridge
+  image_transport
 )
 
 generate_dynamic_reconfigure_options(
@@ -50,4 +52,7 @@ target_link_libraries(
 add_definitions(${PCL_DEFINITIONS})
 
 add_executable(wall_detection src/WallDetectionNode.cpp)
-target_link_libraries(wall_detection ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(wall_detection 
+	${catkin_LIBRARIES} 
+	${PCL_LIBRARIES} 
+	${OpenCV_LIBS})

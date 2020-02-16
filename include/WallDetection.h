@@ -2,6 +2,7 @@
 #define WALL_DETECTION_H
 
 #include <limits>
+#include <algorithm>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
@@ -21,6 +22,17 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <ros/package.h>
+#include <pcl/common/common.h>
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
+
+// Include CvBridge, Image Transport, Image msg
+#include <image_transport/image_transport.h>
+#include <compressed_image_transport/compressed_publisher.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/CompressedImage.h>
 
 namespace detection
 {
@@ -34,6 +46,7 @@ struct WallDetectionParameters
   static constexpr double OUTLIER_STDDEV = 1;
   static constexpr double UPSCALE_INCREMENT = 0.05;
   static constexpr double UPSCALE_LIMIT = 0.5;
+  static constexpr double MAX_FIT = 1e5;
 };
 
 using namespace ros_util;
@@ -52,13 +65,16 @@ WallDetection(ros::NodeHandle& t_nh) :
   m_pubTargetCloud = t_nh.advertise<ROSCloud>("target_cloud", 1);
   m_pubAlignedCloud = t_nh.advertise<ROSCloud>("aligned_cloud", 1);
   m_pubWallOdometry = t_nh.advertise<nav_msgs::Odometry>("wall/odometry", 1);
+
+	image_transport::ImageTransport it(t_nh);
+  m_pubPointCloudImage = it.advertise("cloud_image", 1);
   m_loopTimer = t_nh.createTimer(0.5, 
     &WallDetection::loop_event,
     this
   );
 
   m_targetWallCloud = boost::make_shared<PCXYZ>();
-  wall_from_ply(m_targetWallCloud, "config/zid_tanko_upscale.ply");
+  wall_from_ply(m_targetWallCloud, "config/zid_single.ply");//"config/zid_tanko_upscale.ply");
 }
 
 private:
@@ -131,6 +147,80 @@ void wall_from_ply(PCXYZ::Ptr& t_wallCloud, const std::string& plyPath)
   // Final wall cloud is the demeaned cloud
   t_wallCloud = demean_cloud(wallWithMean);
   m_lastFoundMapCentroid = Eigen::Vector4f{0,0,0,0};
+}
+
+cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
+{
+  if (t_inputCloud->empty()) {
+    ROS_INFO("PCXYZ_to_cvMAT - input cloud is empty");
+    return cv::Mat();
+  }
+
+  ROS_INFO_COND(t_inputCloud->isOrganized(), "WallDetection::PCXYZ_to_cvMat - cloud is organized");
+  ROS_INFO("Size: [%d, %d]", t_inputCloud->height, t_inputCloud->width);
+  cv::Mat outImage(t_inputCloud->height, t_inputCloud->width, CV_8UC1, cv::Scalar(0));
+  for (int x = 0; x < outImage.rows; x++) {
+    for (int y = 0; y < outImage.cols; y++) {
+      auto point = t_inputCloud->at(x, y);
+      if (point.x == 0 && point.y == 0 && point.z == 0) {
+          continue;
+      }
+      outImage.at<cv::Scalar>(y, x) = cv::Scalar(1);
+    }
+  }
+  return outImage;
+}
+
+PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud)
+{
+  if (t_unorganizedCloud->empty()) {
+    return t_unorganizedCloud;
+  }
+
+  pcl::PointXYZ minPoint, maxPoint;
+  pcl::getMinMax3D(*t_unorganizedCloud, minPoint, maxPoint);
+  
+  auto organizedCloud = boost::make_shared<PCXYZ>(
+    round(maxPoint.x - minPoint.x), 
+    round(maxPoint.y - minPoint.y), 
+    pcl::PointXYZ(0, 0, 0)
+  );
+
+  const auto out_of_range = [&organizedCloud] 
+  (const std::size_t t_x, const std::size_t t_y) {
+    return t_x >= organizedCloud->width 
+      || t_y >= organizedCloud->height;
+  };
+  const auto is_point_empty = [] (const pcl::PointXYZ& point) {
+    return point.x == 0 && point.y == 0 && point.z == 0;
+  };
+  const std::size_t indexOffsetX = round(
+    organizedCloud->width / 2.0
+  );
+  const std::size_t indexOffsetY = round(
+    organizedCloud->height / 2.0
+  );
+  const auto add_to_organized_cloud = [&] (const pcl::PointXYZ& point) {
+    const std::size_t indX = round(point.x) + indexOffsetX;
+    const std::size_t indY = round(point.y) + indexOffsetY;
+    
+    if (out_of_range(indX, indY)) {
+      return;
+    }
+
+    auto currentPoint = organizedCloud->at(indX, indY);
+    if (is_point_empty(currentPoint) || point.z > currentPoint.z) {
+      organizedCloud->at(indX, indY) = point;
+    }
+  };
+
+  std::for_each(
+    t_unorganizedCloud->points.begin(),
+    t_unorganizedCloud->points.end(),
+    add_to_organized_cloud
+  );
+
+  return organizedCloud;
 }
 
 void publish_wall_odometry(const Eigen::Matrix4f& t_transform)
@@ -209,7 +299,10 @@ void loop_event(const ros::TimerEvent& /*unused*/)
   inputCloud = crop_by_height(inputCloud);
   inputCloud = do_outlier_filtering(inputCloud);
   inputCloud = demean_cloud(inputCloud);
-  do_icp(inputCloud);
+  inputCloud = organize_pointcluod(inputCloud);
+  auto image = PCXYZ_to_cvMat(inputCloud);
+  // do_icp(inputCloud);
+  publish_image(image, m_pubPointCloudImage);
   publish_cloud(inputCloud, m_pubFilteredCloud);
   publish_cloud(m_targetWallCloud, m_pubTargetCloud);
 }
@@ -239,6 +332,23 @@ PCXYZ::Ptr crop_by_height(const PCXYZ::ConstPtr& t_inputCloud)
   return newCloud;
 }
 
+void publish_image(cv::Mat& t_image, image_transport::Publisher& t_pub)
+{
+  // std_msgs::Header header;
+  // header.frame_id = ros::this_node::getNamespace() + "/map";
+  // header.stamp = ros::Time::now();
+  // header.seq = m_handlerMapCloud.getData().header.seq;
+  // cv_bridge::CvImage bridgeImage(header, sensor_msgs::image_encodings::TYPE_8UC1, t_image);
+
+  cv_bridge::CvImage bridgeImage;
+  bridgeImage.header.frame_id = ros::this_node::getNamespace() + "/map";
+  bridgeImage.header.stamp = ros::Time::now();
+  bridgeImage.header.seq = m_handlerMapCloud.getData().header.seq;
+  bridgeImage.encoding = sensor_msgs::image_encodings::TYPE_8UC1;
+  bridgeImage.image = t_image;
+	t_pub.publish(bridgeImage.toImageMsg());
+}
+
 inline void read_input_cloud(PCXYZ::Ptr& t_inputCloud)
 {
   pcl::fromROSMsg(m_handlerMapCloud.getData(), *t_inputCloud);
@@ -254,8 +364,11 @@ void publish_cloud(const PCXYZ::Ptr& t_inputCloud, ros::Publisher& t_pub)
 }
 
 ros::Timer m_loopTimer;
-ros::Publisher m_pubFilteredCloud, m_pubTargetCloud, m_pubAlignedCloud, m_pubWallOdometry;
 Eigen::Vector4f m_lastFoundMapCentroid;
+double m_maxFitness = WallDetectionParameters::MAX_FIT;
+ros::Publisher m_pubFilteredCloud, m_pubTargetCloud, m_pubAlignedCloud, m_pubWallOdometry;
+image_transport::Publisher m_pubPointCloudImage;
+
 TopicHandler<ROSCloud> m_handlerMapCloud;
 std::shared_ptr<ParamHandler<DetectionConfig>> m_handlerParam;
 PCXYZ::Ptr m_targetWallCloud;
