@@ -1,6 +1,7 @@
 #ifndef WALL_DETECTION_H
 #define WALL_DETECTION_H
 
+#include <vector>
 #include <limits>
 #include <algorithm>
 #include <ros/ros.h>
@@ -23,6 +24,7 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <ros/package.h>
 #include <pcl/common/common.h>
+#include <pcl/common/transforms.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
@@ -47,6 +49,8 @@ struct WallDetectionParameters
   static constexpr double UPSCALE_INCREMENT = 0.05;
   static constexpr double UPSCALE_LIMIT = 0.5;
   static constexpr double MAX_FIT = 1e5;
+  static constexpr double DILATION_FACTOR = 3;
+  static constexpr double CLOUD_RESOLUTION = 15;
 };
 
 using namespace ros_util;
@@ -78,14 +82,14 @@ WallDetection(ros::NodeHandle& t_nh) :
 
   m_targetWallCloud = boost::make_shared<PCXYZ>();
   wall_from_ply(m_targetWallCloud, "config/zid_tanko_upscale.ply"); //"config/zid_single.ply");
-  m_targetWallCloud = organize_pointcluod(m_targetWallCloud, 10, 10);
+  m_targetWallCloud = organize_pointcluod(m_targetWallCloud);
   m_targetWallImage = PCXYZ_to_cvMat(m_targetWallCloud);
   //cv::resize(m_targetWallImage, m_targetWallImage, cv::Size(), 0.25, 0.25);
 }
 
 private:
 
-void do_icp(const PCXYZ::Ptr& t_inputCloud)
+void do_icp(const PCXYZ::Ptr& t_inputCloud, const PCXYZ::Ptr& t_targetCloud)
 {
   if (t_inputCloud->empty())
   {
@@ -94,7 +98,7 @@ void do_icp(const PCXYZ::Ptr& t_inputCloud)
   }
 
   pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-  icp.setInputSource(m_targetWallCloud);
+  icp.setInputSource(t_targetCloud);
   icp.setInputTarget(t_inputCloud);
   auto alignedCloud = boost::make_shared<PCXYZ>();
   icp.align(*alignedCloud);
@@ -177,60 +181,59 @@ cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
           continue;
       }
       outImage.at<uchar>(x, y) = 255;
-      neki_index_x = x;
-      neki_index_y = y;
     }
   }
   return outImage;
 }
 
-void template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_target8UC1)
+Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_target8UC1)
 {
-  // First convert to floating point single channel
-  cv::Mat source32FC1(t_source8UC1.rows, t_source8UC1.cols, CV_32FC1),
-          target32FC1(t_target8UC1.rows, t_target8UC1.cols, CV_32FC1);
-  t_source8UC1.convertTo(source32FC1, CV_32FC1, 1.0 / 255.0, 0);
-  t_target8UC1.convertTo(target32FC1, CV_32FC1, 1.0 / 255.0, 0);
-
-  // Check if conversion is successfulCV_TM_SQDIFF_NORMED
-  std::cout << "float : " << (float)(source32FC1.at<float>(neki_index_x,neki_index_y)) << std::endl; //Prints 0 integer value
-  std::cout << "int : " << (int)(t_source8UC1.at<uchar>(neki_index_x,neki_index_y)) << std::endl; //prints 128 integer value
-
-  // for (int i = 0; i < target32FC1.rows; i++) {
-  //   for(int j = 0; j < target32FC1.cols; j++) {
-  //     std::cout << target32FC1.at<double>(i, j) << " ";
-  //   }
-  //   std::cout << "\n";
-  //   ros::Duration(0.25).sleep();
-  // }
-
-  // method: CV_TM_SQDIFF, CV_TM_SQDIFF_NORMED, CV_TM _CCORR, CV_TM_CCORR_NORMED, CV_TM_CCOEFF, CV_TM_CCOEFF_NORMED
-  int matchMethod = CV_TM_SQDIFF;
-  cv::Mat result32FC1; //(t_source8UC1.rows, t_source8UC1.cols, CV_32FC1);
-  cv::matchTemplate(source32FC1, target32FC1, result32FC1, matchMethod);
-  cv::normalize(result32FC1, result32FC1, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-
-  double minVal, maxVal; 
-  cv::Point minLoc, maxLoc, matchLoc;
-  cv::minMaxLoc(result32FC1, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat() );
-  if( matchMethod  == CV_TM_SQDIFF || matchMethod == CV_TM_SQDIFF_NORMED )  {
-    matchLoc = minLoc;
+  if (t_source8UC1.empty()) {
+    ROS_WARN_THROTTLE(5.0, "template_mathinc - source is empty.");
+    return Eigen::Matrix4f();
   }
-  else {
-    matchLoc = maxLoc;
-  }
-  ROS_INFO("Match location [%.2f, %.2f]", matchLoc.x, matchLoc.y);
 
-  // Attempt to convert result to 8UC1 for publishing
-  cv::Mat result8UC1(result32FC1.rows, result32FC1.cols, CV_8UC1);
-  result32FC1.convertTo(result8UC1, CV_8UC1);
-  
-  publish_image(result8UC1, m_pubResultImage);
+  cv::Mat resultImage(t_source8UC1);
+  double dilation_size = m_handlerParam->getData().dilation_factor;
+  cv::Mat element = getStructuringElement( cv::MORPH_RECT,
+    cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
+    cv::Point( dilation_size, dilation_size ) );
+  cv::dilate(resultImage, resultImage, element);
+
+  typedef std::vector<std::vector<cv::Point>> ContourVector;
+  ContourVector sourceContours, targetContours;
+	cv::findContours(resultImage, sourceContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+  cv::findContours(t_target8UC1, targetContours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+
+  ROS_INFO("Source contour count: %d", sourceContours.size());
+  ROS_INFO("Target contour count: %d", targetContours.size());
+
+  int bestMatchedIndex = -1;
+  double bestFitness = 1e5;
+  for (int i = 0; i < sourceContours.size(); i++) {
+    double matchNumber = cv::matchShapes(sourceContours[i], targetContours.front(), CV_CONTOURS_MATCH_I2, 0);
+    if (matchNumber < bestFitness) {
+      bestMatchedIndex = i;
+      bestFitness = matchNumber;
+    }
+  }
+  cv::drawContours(resultImage, sourceContours, bestMatchedIndex, cv::Scalar(150), 5);
+  cv::Moments M = cv::moments(sourceContours[bestMatchedIndex]);
+  int cX = int(M.m10 / M.m00);
+  int cY = int(M.m01 / M.m00);
+  Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+  transform(0, 3) = (cX - t_source8UC1.rows / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION;
+  transform(1, 3) = (cY - t_source8UC1.cols / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION;
+  ROS_INFO_STREAM("Target transform: " << transform);
+
+  publish_image(resultImage, m_pubResultImage);
   publish_image(t_target8UC1, m_pubWallTargetImage);
+
+  return transform;
 }
 
 PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud, 
-  const int t_width = 100, const int t_height = 100, const int t_resolution = 15)
+  const int t_width = 100, const int t_height = 100)
 {
   if (t_unorganizedCloud->empty()) {
     return t_unorganizedCloud;
@@ -240,8 +243,8 @@ PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud,
   pcl::getMinMax3D(*t_unorganizedCloud, minPoint, maxPoint);
   
   auto organizedCloud = boost::make_shared<PCXYZ>(
-    t_width * t_resolution, 
-    t_height * t_resolution, 
+    t_width * WallDetectionParameters::CLOUD_RESOLUTION, 
+    t_height * WallDetectionParameters::CLOUD_RESOLUTION, 
     pcl::PointXYZ(0, 0, 0)
   );
 
@@ -260,8 +263,8 @@ PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud,
     organizedCloud->height / 2.0
   );
   const auto add_to_organized_cloud = [&] (const pcl::PointXYZ& point) {
-    const std::size_t indX = round(point.x * t_resolution)  + indexOffsetX;
-    const std::size_t indY = round(point.y * t_resolution) + indexOffsetY;
+    const std::size_t indX = round(point.x * WallDetectionParameters::CLOUD_RESOLUTION)  + indexOffsetX;
+    const std::size_t indY = round(point.y * WallDetectionParameters::CLOUD_RESOLUTION) + indexOffsetY;
     
     if (out_of_range(indX, indY)) {
       return;
@@ -347,6 +350,7 @@ void initialize_parameters(ros::NodeHandle& t_nh)
   config.outlier_filter_stddev = WallDetectionParameters::OUTLIER_STDDEV;
   config.min_crop_height = WallDetectionParameters::MIN_HEIGHT;
   config.max_crop_height = WallDetectionParameters::MAX_HEIGHT;
+  config.dilation_factor = WallDetectionParameters::DILATION_FACTOR;
   m_handlerParam = std::make_shared<ParamHandler<DetectionConfig>>(config, "wall_detection");
 }
 
@@ -360,15 +364,15 @@ void loop_event(const ros::TimerEvent& /*unused*/)
   inputCloud = demean_cloud(inputCloud);
   inputCloud = organize_pointcluod(inputCloud);
   auto image = PCXYZ_to_cvMat(inputCloud);
-  template_matching(image, m_targetWallImage);
-  // cv::Mat dst;
-  // cv::normalize(image, dst, 0, 1, cv::NORM_MINMAX);
-  // cv::imshow(cv::String("hello"),dst);
-  // cv::waitKey(0);
-  // do_icp(inputCloud);
+  auto targetTransform = template_matching(image, m_targetWallImage);
+  
+  auto transformedTargetCloud = boost::make_shared<PCXYZ>();
+  pcl::transformPointCloud(*m_targetWallCloud, *transformedTargetCloud, targetTransform);
+  do_icp(inputCloud, transformedTargetCloud); // TODO: Try dilating for ICP aswell
+
   publish_image(image, m_pubPointCloudImage);
   publish_cloud(inputCloud, m_pubFilteredCloud);
-  publish_cloud(m_targetWallCloud, m_pubTargetCloud);
+  publish_cloud(transformedTargetCloud, m_pubTargetCloud);
 }
 
 PCXYZ::Ptr crop_by_height(const PCXYZ::ConstPtr& t_inputCloud)
@@ -430,8 +434,6 @@ TopicHandler<ROSCloud> m_handlerMapCloud;
 std::shared_ptr<ParamHandler<DetectionConfig>> m_handlerParam;
 PCXYZ::Ptr m_targetWallCloud;
 cv::Mat m_targetWallImage;
-
-std::size_t neki_index_x, neki_index_y;
 };
 
 }
