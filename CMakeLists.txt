@@ -8,7 +8,8 @@ find_package(catkin REQUIRED COMPONENTS
 	dynamic_reconfigure
 	roslib
 	cv_bridge
-  image_transport
+	image_transport
+	mavros
 )
 
 generate_dynamic_reconfigure_options(
@@ -16,6 +17,8 @@ generate_dynamic_reconfigure_options(
 	config/WallDetectionParameters.cfg
 )
 
+list(INSERT CMAKE_MODULE_PATH 0 "/usr/share/cmake/geographiclib/")
+find_package(GeographicLib REQUIRED)
 
 find_package(PCL 1.7 REQUIRED)
 find_package(OpenCV REQUIRED)

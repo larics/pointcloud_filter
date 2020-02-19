@@ -16,6 +16,15 @@ struct EnumClassHash
     }
 };
 
+struct PairHash
+{
+	template <class T1, class T2>
+	std::size_t operator() (const std::pair<T1, T2> &pair) const
+	{
+		return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
+	}
+};
+
 template<class T>
 void getParamOrThrow(
   ros::NodeHandle& t_nh, const std::string& t_paramName, T& t_paramContainer)

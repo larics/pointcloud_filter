@@ -8,6 +8,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
 #include "Util.h"
+#include "Global2Local.h"
 #include <pointcloud_filter/WallDetectionParametersConfig.h>
 #include <tf2/LinearMath/Quaternion.h>
 
@@ -63,7 +64,8 @@ class WallDetection
 {
 public:
 WallDetection(ros::NodeHandle& t_nh) :
-  m_handlerMapCloud(t_nh, "submap_cloud")
+  m_handlerMapCloud(t_nh, "submap_cloud"), 
+  m_g2l(t_nh)
 {
   initialize_parameters(t_nh);
   m_pubFilteredCloud = t_nh.advertise<ROSCloud>("filtered_cloud", 1);
@@ -158,6 +160,40 @@ void wall_from_ply(PCXYZ::Ptr& t_wallCloud, const std::string& plyPath)
   m_lastFoundMapCentroid = Eigen::Vector4f{0,0,0,0};
 }
 
+void add_wall_position(double x, double y)
+{
+  auto newPosition = std::make_pair(x, y);
+  auto success = m_wallPositionMap.emplace(newPosition, 0);
+  if (!success.second) {
+    m_wallPositionMap[newPosition] ++;
+  }
+
+  ROS_INFO("PickupChallengeInfo - wall at [%.2f, %.2f] seen %d times.",
+    x, y, m_wallPositionMap[newPosition]);
+}
+
+bool get_wall_position(std::pair<double, double>& t_wallPosition)
+{
+  double maxValue = 0, meanValue = 0;
+  std::pair<double, double> bestWallPosition;
+  for (const auto& wallPosition : m_wallPositionMap) {
+    meanValue += wallPosition.second;
+    
+    if (wallPosition.second > maxValue) {
+      bestWallPosition = wallPosition.first;
+      maxValue = wallPosition.second;
+    }
+  }
+  
+  meanValue /= m_wallPositionMap.size();
+  if (maxValue - meanValue < 10) {
+    return false;
+  }
+  
+  t_wallPosition = bestWallPosition;
+  return true;
+}
+
 cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
 {
   if (t_inputCloud->empty()) {
@@ -249,6 +285,15 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   publish_image(t_target8UC1, m_pubWallTargetImage);
   publish_wall_odometry(m_bestTransformation);
   
+  add_wall_position(transform(0, 3), transform(1, 3));
+  std::pair<double, double> wallPosition;
+  if (!m_wallPositionSet && get_wall_position(wallPosition)) {
+    auto wallGlobal = m_g2l.toGlobal(transform(0, 3), transform(1, 3), transform(2, 3));
+    m_nh.setParam("brick_dropoff/lat", wallGlobal.x());
+    m_nh.setParam("brick_dropoff/lon", wallGlobal.y());
+    ROS_WARN("Set new pickup position! [%.10f, %.10f]", wallGlobal.x(), wallGlobal.y());
+    m_wallPositionSet = true;
+  }
   return transform;
 }
 
@@ -457,6 +502,15 @@ TopicHandler<ROSCloud> m_handlerMapCloud;
 std::shared_ptr<ParamHandler<DetectionConfig>> m_handlerParam;
 PCXYZ::Ptr m_targetWallCloud;
 cv::Mat m_targetWallImage;
+std::unordered_map<
+  std::pair<double, double>,
+  std::size_t,
+  PairHash
+> m_wallPositionMap;
+
+Global2Local m_g2l;
+ros::NodeHandle m_nh;
+bool m_wallPositionSet = false;
 };
 
 }
