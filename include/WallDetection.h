@@ -233,8 +233,9 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   int cX = int(M.m10 / M.m00);
   int cY = int(M.m01 / M.m00);
   Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
-  transform(0, 3) = (cX - t_source8UC1.rows / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION;
-  transform(1, 3) = (cY - t_source8UC1.cols / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION;
+  transform(0, 3) = (cX - t_source8UC1.rows / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.x();
+  transform(1, 3) = (cY - t_source8UC1.cols / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.y();
+  transform(2, 3) = m_lastFoundMapCentroid.z();
   ROS_INFO_STREAM("Target transform: " << transform);
 
   // Check if best index found
@@ -311,9 +312,9 @@ void publish_wall_odometry(const Eigen::Matrix4f& t_transform)
   const auto get_translation_z = [&t_transform] () { return t_transform(2, 3); };
   const auto get_transform_quaternion = [&t_transform] () {
     tf::Matrix3x3 mat(
-      t_transform(0, 1), t_transform(0, 2), t_transform(0, 3),
-      t_transform(1, 1), t_transform(1, 2), t_transform(1, 3),
-      t_transform(2, 1), t_transform(2, 2), t_transform(2, 3)
+      t_transform(0, 0), t_transform(0, 1), t_transform(0, 2),
+      t_transform(1, 0), t_transform(1, 1), t_transform(1, 2),
+      t_transform(2, 0), t_transform(2, 1), t_transform(2, 2)
     );
     double roll, pitch, yaw; 
     mat.getRPY(roll, pitch, yaw);
@@ -324,9 +325,9 @@ void publish_wall_odometry(const Eigen::Matrix4f& t_transform)
   nav_msgs::Odometry wallOdom;
   wallOdom.header.stamp = ros::Time::now();
   wallOdom.header.frame_id = ros::this_node::getNamespace() + "/map";
-  wallOdom.pose.pose.position.x = get_translation_x() + m_lastFoundMapCentroid.x();
-  wallOdom.pose.pose.position.y = get_translation_y() + m_lastFoundMapCentroid.y();
-  wallOdom.pose.pose.position.z = get_translation_z() + m_lastFoundMapCentroid.z();
+  wallOdom.pose.pose.position.x = get_translation_x();
+  wallOdom.pose.pose.position.y = get_translation_y();
+  wallOdom.pose.pose.position.z = get_translation_z();
   
   auto q = get_transform_quaternion();
   wallOdom.pose.pose.orientation.x = q.getX();
