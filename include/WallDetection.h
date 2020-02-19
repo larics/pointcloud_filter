@@ -42,15 +42,16 @@ namespace detection
 struct WallDetectionParameters 
 {
   static constexpr double MAX_BOX = std::numeric_limits<double>::max();
-  static constexpr double MIN_HEIGHT = 1;
+  static constexpr double MIN_HEIGHT = 1.6;
   static constexpr double MAX_HEIGHT = 2;
   static constexpr double OUTLIER_MEAN = 50;
   static constexpr double OUTLIER_STDDEV = 1;
-  static constexpr double UPSCALE_INCREMENT = 0.05;
+  static constexpr double UPSCALE_INCREMENT = 0.01;
   static constexpr double UPSCALE_LIMIT = 0.5;
   static constexpr double MAX_FIT = 1e5;
   static constexpr double DILATION_FACTOR = 3;
   static constexpr double CLOUD_RESOLUTION = 15;
+  static constexpr int    MIN_MATCH_SIZE = 3000;
 };
 
 using namespace ros_util;
@@ -75,7 +76,7 @@ WallDetection(ros::NodeHandle& t_nh) :
   m_pubResultImage = it.advertise("result_image", 1);
   m_pubWallTargetImage = it.advertise("target_image", 1);
 
-  m_loopTimer = t_nh.createTimer(0.5, 
+  m_loopTimer = t_nh.createTimer(0.1, 
     &WallDetection::loop_event,
     this
   );
@@ -84,7 +85,6 @@ WallDetection(ros::NodeHandle& t_nh) :
   wall_from_ply(m_targetWallCloud, "config/zid_tanko_upscale.ply"); //"config/zid_single.ply");
   m_targetWallCloud = organize_pointcluod(m_targetWallCloud);
   m_targetWallImage = PCXYZ_to_cvMat(m_targetWallCloud);
-  //cv::resize(m_targetWallImage, m_targetWallImage, cv::Size(), 0.25, 0.25);
 }
 
 private:
@@ -112,7 +112,6 @@ void do_icp(const PCXYZ::Ptr& t_inputCloud, const PCXYZ::Ptr& t_targetCloud)
   // Do some stuff if converged
   ROS_INFO_STREAM("ICP transformation: " << icp.getFinalTransformation());
   publish_cloud(alignedCloud, m_pubAlignedCloud);
-  publish_wall_odometry(icp.getFinalTransformation());
 }
 
 void wall_from_ply(PCXYZ::Ptr& t_wallCloud, const std::string& plyPath)
@@ -189,7 +188,7 @@ cv::Mat PCXYZ_to_cvMat(const PCXYZ::Ptr& t_inputCloud)
 Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_target8UC1)
 {
   if (t_source8UC1.empty()) {
-    ROS_WARN_THROTTLE(5.0, "template_mathinc - source is empty.");
+    ROS_WARN_THROTTLE(5.0, "template_matching - source is empty.");
     return Eigen::Matrix4f();
   }
 
@@ -211,12 +210,24 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   int bestMatchedIndex = -1;
   double bestFitness = 1e5;
   for (int i = 0; i < sourceContours.size(); i++) {
-    double matchNumber = cv::matchShapes(sourceContours[i], targetContours.front(), CV_CONTOURS_MATCH_I2, 0);
-    if (matchNumber < bestFitness) {
+
+    if (cv::contourArea(sourceContours[i]) < m_handlerParam->getData().min_match_size) {
+      continue;
+    }
+
+    double currentFitness = cv::matchShapes(sourceContours[i], targetContours.front(), CV_CONTOURS_MATCH_I3, 0);
+    if (currentFitness < bestFitness) {
       bestMatchedIndex = i;
-      bestFitness = matchNumber;
+      bestFitness = currentFitness;
     }
   }
+
+  if (bestMatchedIndex < 0) {
+    ROS_FATAL("WallDetection::template_matching - unable to match contours");
+    return Eigen::Matrix4f();
+  }
+
+  ROS_INFO("Best fitness: %.5f", bestFitness);
   cv::drawContours(resultImage, sourceContours, bestMatchedIndex, cv::Scalar(150), 5);
   cv::Moments M = cv::moments(sourceContours[bestMatchedIndex]);
   int cX = int(M.m10 / M.m00);
@@ -226,9 +237,17 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   transform(1, 3) = (cY - t_source8UC1.cols / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION;
   ROS_INFO_STREAM("Target transform: " << transform);
 
+  // Check if best index found
+  if (bestFitness < m_maxFitness) {
+    ROS_WARN("New best fitness found! %.2f", bestFitness);
+    m_bestTransformation = transform;
+    m_maxFitness = bestFitness;
+  }
+
   publish_image(resultImage, m_pubResultImage);
   publish_image(t_target8UC1, m_pubWallTargetImage);
-
+  publish_wall_odometry(m_bestTransformation);
+  
   return transform;
 }
 
@@ -351,6 +370,7 @@ void initialize_parameters(ros::NodeHandle& t_nh)
   config.min_crop_height = WallDetectionParameters::MIN_HEIGHT;
   config.max_crop_height = WallDetectionParameters::MAX_HEIGHT;
   config.dilation_factor = WallDetectionParameters::DILATION_FACTOR;
+  config.min_match_size = WallDetectionParameters::MIN_MATCH_SIZE;
   m_handlerParam = std::make_shared<ParamHandler<DetectionConfig>>(config, "wall_detection");
 }
 
@@ -366,13 +386,13 @@ void loop_event(const ros::TimerEvent& /*unused*/)
   auto image = PCXYZ_to_cvMat(inputCloud);
   auto targetTransform = template_matching(image, m_targetWallImage);
   
-  auto transformedTargetCloud = boost::make_shared<PCXYZ>();
-  pcl::transformPointCloud(*m_targetWallCloud, *transformedTargetCloud, targetTransform);
-  do_icp(inputCloud, transformedTargetCloud); // TODO: Try dilating for ICP aswell
+  // auto transformedTargetCloud = boost::make_shared<PCXYZ>();
+  // pcl::transformPointCloud(*m_targetWallCloud, *transformedTargetCloud, targetTransform);
+  // do_icp(inputCloud, transformedTargetCloud); // TODO: Try dilating for ICP aswell
 
   publish_image(image, m_pubPointCloudImage);
   publish_cloud(inputCloud, m_pubFilteredCloud);
-  publish_cloud(transformedTargetCloud, m_pubTargetCloud);
+  publish_cloud(m_targetWallCloud, m_pubTargetCloud);
 }
 
 PCXYZ::Ptr crop_by_height(const PCXYZ::ConstPtr& t_inputCloud)
@@ -426,7 +446,9 @@ void publish_cloud(const PCXYZ::Ptr& t_inputCloud, ros::Publisher& t_pub)
 
 ros::Timer m_loopTimer;
 Eigen::Vector4f m_lastFoundMapCentroid;
+Eigen::Matrix4f m_bestTransformation;
 double m_maxFitness = WallDetectionParameters::MAX_FIT;
+
 ros::Publisher m_pubFilteredCloud, m_pubTargetCloud, m_pubAlignedCloud, m_pubWallOdometry;
 image_transport::Publisher m_pubPointCloudImage, m_pubResultImage, m_pubWallTargetImage;
 
