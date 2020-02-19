@@ -285,10 +285,13 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   publish_image(t_target8UC1, m_pubWallTargetImage);
   publish_wall_odometry(m_bestTransformation);
   
-  add_wall_position(transform(0, 3), transform(1, 3));
+  add_wall_position(m_bestTransformation(0, 3), m_bestTransformation(1, 3));
   std::pair<double, double> wallPosition;
   if (!m_wallPositionSet && get_wall_position(wallPosition)) {
-    auto wallGlobal = m_g2l.toGlobal(transform(0, 3), transform(1, 3), transform(2, 3));
+    auto wallGlobal = m_g2l.toGlobal(
+      wallPosition.first,
+      wallPosition.second,
+      0);
     m_nh.setParam("brick_dropoff/lat", wallGlobal.x());
     m_nh.setParam("brick_dropoff/lon", wallGlobal.y());
     ROS_WARN("Set new pickup position! [%.10f, %.10f]", wallGlobal.x(), wallGlobal.y());
