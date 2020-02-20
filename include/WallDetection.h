@@ -186,7 +186,7 @@ bool get_wall_position(std::pair<double, double>& t_wallPosition)
   }
   
   meanValue /= m_wallPositionMap.size();
-  if (maxValue - meanValue < 10) {
+  if (maxValue - meanValue < 5) {
     return false;
   }
   
@@ -287,7 +287,7 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   
   add_wall_position(m_bestTransformation(0, 3), m_bestTransformation(1, 3));
   std::pair<double, double> wallPosition;
-  if (!m_wallPositionSet && get_wall_position(wallPosition)) {
+  if (get_wall_position(wallPosition)) {
     auto wallGlobal = m_g2l.toGlobal(
       wallPosition.first,
       wallPosition.second,
@@ -295,7 +295,6 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
     m_nh.setParam("brick_dropoff/lat", wallGlobal.x());
     m_nh.setParam("brick_dropoff/lon", wallGlobal.y());
     ROS_WARN("Set new pickup position! [%.10f, %.10f]", wallGlobal.x(), wallGlobal.y());
-    m_wallPositionSet = true;
   }
   return transform;
 }
@@ -513,7 +512,6 @@ std::unordered_map<
 
 Global2Local m_g2l;
 ros::NodeHandle m_nh;
-bool m_wallPositionSet = false;
 };
 
 }
