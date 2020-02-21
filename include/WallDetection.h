@@ -65,7 +65,8 @@ class WallDetection
 public:
 WallDetection(ros::NodeHandle& t_nh) :
   m_handlerMapCloud(t_nh, "submap_cloud"), 
-  m_g2l(t_nh)
+  m_g2l(t_nh),
+  m_detectionCounter(0)
 {
   initialize_parameters(t_nh);
   m_pubFilteredCloud = t_nh.advertise<ROSCloud>("filtered_cloud", 1);
@@ -274,23 +275,31 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   transform(2, 3) = m_lastFoundMapCentroid.z();
   ROS_INFO_STREAM("Target transform: " << transform);
 
-  // Check if best index found
-  if (bestFitness < m_maxFitness) {
-    ROS_WARN("New best fitness found! %.2f", bestFitness);
-    m_bestTransformation = transform;
-    m_maxFitness = bestFitness;
+  double distance_from_previous = sqrt(
+    pow(transform(0, 3) - m_bestTransformation(0, 3), 2) 
+    + pow(transform(1, 3) - m_bestTransformation(1, 3), 2)
+  );
+
+  if (distance_from_previous > WallDetectionParameters::MAX_DISTANCE) {
+    ROS_WARN("WallDetection - resetting detection counter.");
+    m_detectionCounter = 0;
   }
+  else {
+    m_detectionCounter++;
+    ROS_INFO("WallDetection - counter at %d", m_detectionCounter);
+  }
+  m_bestTransformation = transform;
 
   publish_image(resultImage, m_pubResultImage);
   publish_image(t_target8UC1, m_pubWallTargetImage);
   publish_wall_odometry(m_bestTransformation);
   
-  add_wall_position(m_bestTransformation(0, 3), m_bestTransformation(1, 3));
-  std::pair<double, double> wallPosition;
-  if (get_wall_position(wallPosition)) {
+  // add_wall_position(m_bestTransformation(0, 3), m_bestTransformation(1, 3));
+  // std::pair<double, double> wallPosition;
+  if (m_detectionCounter > WallDetectionParameters::COUNTER_THRESHOLD) {
     auto wallGlobal = m_g2l.toGlobal(
-      wallPosition.first,
-      wallPosition.second,
+      m_bestTransformation(0, 3),
+      m_bestTransformation(1, 3),
       0);
     m_nh.setParam("brick_dropoff/lat", wallGlobal.x());
     m_nh.setParam("brick_dropoff/lon", wallGlobal.y());
@@ -512,6 +521,7 @@ std::unordered_map<
 
 Global2Local m_g2l;
 ros::NodeHandle m_nh;
+int m_detectionCounter = 0;
 };
 
 }
