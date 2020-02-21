@@ -43,15 +43,15 @@ namespace detection
 struct WallDetectionParameters 
 {
   static constexpr double MAX_BOX = std::numeric_limits<double>::max();
-  static constexpr double MIN_HEIGHT = 1.6;
-  static constexpr double MAX_HEIGHT = 2;
+  static constexpr double MIN_HEIGHT = 2;
+  static constexpr double MAX_HEIGHT = 2.5;
   static constexpr double OUTLIER_MEAN = 100;
   static constexpr double OUTLIER_STDDEV = 0.01;
   static constexpr double UPSCALE_INCREMENT = 0.01;
-  static constexpr double UPSCALE_LIMIT = 0.5;
+  static constexpr double UPSCALE_LIMIT = 0.75;
   static constexpr double MAX_FIT = 1e5;
-  static constexpr double DILATION_FACTOR = 3;
-  static constexpr double CLOUD_RESOLUTION = 15;
+  static constexpr double DILATION_FACTOR = 9;
+  static constexpr double CLOUD_RESOLUTION = 20;
   static constexpr int    MIN_MATCH_SIZE = 3500;
 };
 
