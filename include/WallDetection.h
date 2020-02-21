@@ -51,8 +51,10 @@ struct WallDetectionParameters
   static constexpr double UPSCALE_LIMIT = 0.75;
   static constexpr double MAX_FIT = 1e5;
   static constexpr double DILATION_FACTOR = 9;
-  static constexpr double CLOUD_RESOLUTION = 20;
+  static constexpr double CLOUD_RESOLUTION = 20.0;
   static constexpr int    MIN_MATCH_SIZE = 3500;
+  static constexpr double MAX_DISTANCE = 1.5;
+  static constexpr int COUNTER_THRESHOLD = 7;
 };
 
 using namespace ros_util;
@@ -270,8 +272,8 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   int cX = int(M.m10 / M.m00);
   int cY = int(M.m01 / M.m00);
   Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
-  transform(0, 3) = (cX - t_source8UC1.rows / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.x();
-  transform(1, 3) = (cY - t_source8UC1.cols / 2.0) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.y();
+  transform(1, 3) = (cX - t_source8UC1.rows / 2.0 ) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.y();
+  transform(0, 3) = (cY - t_source8UC1.cols / 2.0 ) / WallDetectionParameters::CLOUD_RESOLUTION + m_lastFoundMapCentroid.x();
   transform(2, 3) = m_lastFoundMapCentroid.z();
   ROS_INFO_STREAM("Target transform: " << transform);
 
@@ -314,9 +316,6 @@ PCXYZ::Ptr organize_pointcluod(const PCXYZ::Ptr& t_unorganizedCloud,
   if (t_unorganizedCloud->empty()) {
     return t_unorganizedCloud;
   }
-
-  pcl::PointXYZ minPoint, maxPoint;
-  pcl::getMinMax3D(*t_unorganizedCloud, minPoint, maxPoint);
   
   auto organizedCloud = boost::make_shared<PCXYZ>(
     t_width * WallDetectionParameters::CLOUD_RESOLUTION, 
