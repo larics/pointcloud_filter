@@ -52,7 +52,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		pcXYZ::Ptr originalCloud = pcl_pub_sub.getOrganizedCloudPtr();
 
 		if(!originalCloud || originalCloud->points.size() == 0) {
-		continue;
+			ROS_WARN("no cloud!");
+			continue;
 		}
 
 		pcXYZ::Ptr filteredCloud ( new pcXYZ ), patchCloud( new pcXYZ );
@@ -61,11 +62,16 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		// filteredCloud = removeNaNValues(filteredCloud);
 		// filteredCloud = doOutlierFiltering(filteredCloud, nodeHandle);
 
-		patchCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getPatchMask());
+		patchCloud = removeNonMaskValues(originalCloud, pcl_pub_sub.getMask());
+		if (!patchCloud->empty()) {
+			patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
+		}
+		else ROS_WARN("patchcloud empty1!");
 		patchCloud = removeNaNValues(patchCloud);
 		if (!patchCloud->empty()) {
 			patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
 		}
+		else ROS_WARN("patchcloud empty2!");
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances, patchCentroid;
@@ -227,7 +233,6 @@ pcXYZ::Ptr PointcloudFilter::removeNaNValues ( pcXYZ::Ptr inputCloud )
 pcXYZ::Ptr PointcloudFilter::removeNonMaskValues( pcXYZ::Ptr inputCloud, 
 												vector <vector <int>> mask )
 {
-	
 	pcXYZ::Ptr tempCloud ( new pcXYZ );
 	*tempCloud = *inputCloud;
 
