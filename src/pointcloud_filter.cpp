@@ -66,12 +66,10 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		if (!patchCloud->empty()) {
 			patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
 		}
-		else ROS_WARN("patchcloud empty1!");
 		patchCloud = removeNaNValues(patchCloud);
 		if (!patchCloud->empty()) {
 			patchCloud = doOutlierFiltering(patchCloud, nodeHandle);
 		}
-		else ROS_WARN("patchcloud empty2!");
 
 		//pcl_pub_sub.publishPointCloud(filteredCloud, camera_frame);
 		std::vector<double> minDistances, patchCentroid;
