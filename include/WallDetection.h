@@ -46,15 +46,15 @@ struct WallDetectionParameters
   static constexpr double MIN_HEIGHT = 2;
   static constexpr double MAX_HEIGHT = 2.5;
   static constexpr double OUTLIER_MEAN = 100;
-  static constexpr double OUTLIER_STDDEV = 0.01;
+  static constexpr double OUTLIER_STDDEV = 0.1;
   static constexpr double UPSCALE_INCREMENT = 0.01;
   static constexpr double UPSCALE_LIMIT = 0.75;
   static constexpr double MAX_FIT = 1e5;
-  static constexpr double DILATION_FACTOR = 9;
+  static constexpr double DILATION_FACTOR = 4;
   static constexpr double CLOUD_RESOLUTION = 20.0;
   static constexpr int    MIN_MATCH_SIZE = 3500;
-  static constexpr double MAX_DISTANCE = 1.5;
-  static constexpr int COUNTER_THRESHOLD = 4;
+  static constexpr double MAX_DISTANCE = 3;
+  static constexpr int COUNTER_THRESHOLD = 2;
 };
 
 using namespace ros_util;
@@ -298,7 +298,7 @@ Eigen::Matrix4f template_matching(const cv::Mat& t_source8UC1, const cv::Mat& t_
   
   // add_wall_position(m_bestTransformation(0, 3), m_bestTransformation(1, 3));
   // std::pair<double, double> wallPosition;
-  if (m_detectionCounter > WallDetectionParameters::COUNTER_THRESHOLD) {
+  if (m_detectionCounter >= WallDetectionParameters::COUNTER_THRESHOLD) {
     auto wallGlobal = m_g2l.toGlobal(
       m_bestTransformation(0, 3),
       m_bestTransformation(1, 3),
