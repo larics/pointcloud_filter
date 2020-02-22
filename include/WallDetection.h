@@ -54,7 +54,7 @@ struct WallDetectionParameters
   static constexpr double CLOUD_RESOLUTION = 20.0;
   static constexpr int    MIN_MATCH_SIZE = 3500;
   static constexpr double MAX_DISTANCE = 1.5;
-  static constexpr int COUNTER_THRESHOLD = 7;
+  static constexpr int COUNTER_THRESHOLD = 4;
 };
 
 using namespace ros_util;
