@@ -174,6 +174,12 @@ void PC_PUB_SUB::rosMaskImagePatchCallback(const sensor_msgs::CompressedImage::C
 
 }
 
+void PC_PUB_SUB::rosMaskFootprintCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg)
+{
+	const auto image = cv::imdecode(cv::Mat(ros_msg->data), -1);
+	mask_footprint = PC_PUB_SUB::processMaskImage(image);
+}
+
 void PC_PUB_SUB::smStateCallback(const std_msgs::String& ros_msg) 
 {
   std::string sm_state = ros_msg.data;

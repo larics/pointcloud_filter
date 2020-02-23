@@ -78,6 +78,7 @@ class PC_PUB_SUB
 		bool newMeasurementRecieved();
 		void rosMaskImageBrickCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg);
 		void rosMaskImagePatchCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg);
+		void rosMaskFootprintCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg);
 		void rosNContoursCallback(const std_msgs::Int32::Ptr& ros_msg);
 		void rosNPatchesCallback(const std_msgs::Int32::Ptr& ros_msg);
 		void currentBrickColorCallback(const std_msgs::String& ros_msgs);
@@ -120,6 +121,7 @@ class PC_PUB_SUB
 		pcl::PointCloud<pcl::PointXYZ>::Ptr organizedCloudPtr;
 		vector< vector <int>> mask_brick;
 		vector< vector <int>> mask_patch;
+		vector< vector <int>> mask_footprint;
 		double closest_point_distance;
 		bool _newMeasurement = false;
 		string current_brick_color_;
