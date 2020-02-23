@@ -52,13 +52,15 @@ class PC_PUB_SUB
 			string closest_point_distance_pub_topic,
 			string closest_point_base_distance_pub_topic,
 			string mask_sub_topic_brick,
-			string mask_sub_topic_patch );
+			string mask_sub_topic_patch,
+			string mask_sub_topic_footprint);
 
 		virtual ~PC_PUB_SUB();
 
 		void registerPointCloudSubscriber(string topic);
 		void registerImageSubscriberBrick(string topic);
 		void registerImageSubscriberPatch(string topic);
+		void registerImageSubscriberFootprint(const string& topic);
 		void registerNContoursSubscriber(string topic);
 		void registerNPatchesSubscriber(string topic);
 		void registerPointCloudPublisher(string topic);
@@ -96,13 +98,14 @@ class PC_PUB_SUB
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr getOrganizedCloudPtr();
 		// vector< vector <int>> getMask();
-		void getMask(vector < vector<int>> &mask_brick_loc, vector < vector<int>> &mask_patch_loc);
+		void getMask(vector < vector<int>> &mask_brick_loc, vector < vector<int>> &mask_patch_loc, vector < vector<int>> &mask_footprint_loc);
 
 	private:
 		ros::NodeHandle nodeHandle_;
 		ros::Subscriber sub_pc2_;
 		ros::Subscriber sub_mask_brick_;
 		ros::Subscriber sub_mask_patch_;
+		ros::Subscriber sub_mask_footprint_;
 		ros::Subscriber sub_nContours_;
 		ros::Subscriber sub_nPatches_;
 		ros::Subscriber sub_current_brick_color_;

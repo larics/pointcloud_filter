@@ -5,7 +5,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 						string closest_point_distance_pub_topic,
 						string closest_point_base_distance_pub_topic,
 						string mask_sub_topic_brick,
-						string mask_sub_topic_patch) 
+						string mask_sub_topic_patch,
+						string mask_sub_topic_footprint) 
 {
 	nodeHandle_ = nodeHandle;
 	registerPointCloudSubscriber(pointcloud_sub_topic);
@@ -17,6 +18,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 		registerImageSubscriberBrick(mask_sub_topic_brick);
 	if (mask_sub_topic_patch != "none")
 		registerImageSubscriberPatch(mask_sub_topic_patch);
+	if (mask_sub_topic_footprint != "none")
+		registerImageSubscriberFootprint(mask_sub_topic_footprint);
 	registerPointCloudPublisher(filtered_pointcloud_pub_topic);
 
 	registerDistancePublisher(closest_point_distance_pub_topic, closest_point_distance_pub_topic + "_patch");
@@ -61,6 +64,11 @@ void PC_PUB_SUB::registerImageSubscriberBrick(string topic)
 void PC_PUB_SUB::registerImageSubscriberPatch(string topic) 
 {
 	sub_mask_patch_ = nodeHandle_.subscribe(topic, 1, &PC_PUB_SUB::rosMaskImagePatchCallback, this);
+}
+
+void PC_PUB_SUB::registerImageSubscriberFootprint(const string& topic) 
+{
+	sub_mask_footprint_ = nodeHandle_.subscribe(topic, 1, &PC_PUB_SUB::rosMaskFootprintCallback, this);
 }
 
 void PC_PUB_SUB::registerNContoursSubscriber(string topic)
@@ -184,6 +192,7 @@ void PC_PUB_SUB::smStateCallback(const std_msgs::String& ros_msg)
 {
   std::string sm_state = ros_msg.data;
 
+	// TODO: Ovdje imam if state "goto_wall_servo" onda aktiviram calc_fooprint
   if (sm_state == "husky_servo_color") {
 	calc_brick_ = true;
 	calc_patch_ = true;
@@ -203,9 +212,10 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr PC_PUB_SUB::getOrganizedCloudPtr()
 	return organizedCloudPtr;
 }
 
-void PC_PUB_SUB::getMask(vector < vector<int>> &mask_brick_loc, vector < vector<int>> &mask_patch_loc) {
+void PC_PUB_SUB::getMask(vector < vector<int>> &mask_brick_loc, vector < vector<int>> &mask_patch_loc, vector < vector<int>> &mask_footprint_loc) {
 	mask_brick_loc = mask_brick;
 	mask_patch_loc = mask_patch;
+	mask_footprint_loc = mask_footprint;
 }
 
 void PC_PUB_SUB::publishPointCloud(pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud, string camera_frame) 

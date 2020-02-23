@@ -12,6 +12,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 								string pointcloud_sub_topic, 
 								string mask_sub_topic_brick, 
 								string mask_sub_topic_patch, 
+								string mask_sub_topic_footprint,
 								string filtered_pointcloud_pub_topic, 
 								string closest_point_distance_pub_topic,
 								string closest_point_base_distance_pub_topic,
@@ -22,7 +23,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 	PC_PUB_SUB pcl_pub_sub(	nodeHandle, pointcloud_sub_topic, filtered_pointcloud_pub_topic, 
 							closest_point_distance_pub_topic, closest_point_base_distance_pub_topic, 
-							mask_sub_topic_brick, mask_sub_topic_patch);
+							mask_sub_topic_brick, mask_sub_topic_patch, mask_sub_topic_footprint);
 	const double rate = 50;
 	const double dt = 1.0 / 9.0;
 	ros::Rate loop_rate(rate);
@@ -59,9 +60,11 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		pcXYZ::Ptr filteredCloud ( new pcXYZ );
 
-		vector < vector<int>> mask_brick, mask_patch;
-		pcl_pub_sub.getMask(mask_brick, mask_patch);
-
+		vector < vector<int>> mask_brick, mask_patch, mask_footprint;
+		pcl_pub_sub.getMask(mask_brick, mask_patch, mask_footprint);
+		// TODO: nekako getta masku sa ivinog topica
+		// TODO: Isto ce bit maska *hopefully
+		// 
 		if (pcl_pub_sub.calc_brick_ || (pcl_pub_sub.calc_patch_ && (pcl_pub_sub.nPatches == 0))) {
 			filteredCloud = removeNonMaskValues(originalCloud, mask_brick);
 			filteredCloud = removeNaNValues(filteredCloud);
@@ -109,6 +112,9 @@ void PointcloudFilter::filter ( int argc, char** argv,
 			pcl_pub_sub.resetNewMeasurementFlag();
 
 		}
+
+		// TODO: Ja cu sada imati calc_footpring
+		// TODO: I onda if calc footrpint nesto se desi
 
 		if ((pcl_pub_sub.calc_patch_) && (pcl_pub_sub.nPatches > 0)) {
 			filteredCloud = removeNonMaskValues(originalCloud, mask_patch);
