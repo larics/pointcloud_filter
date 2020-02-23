@@ -62,9 +62,7 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		vector < vector<int>> mask_brick, mask_patch, mask_footprint;
 		pcl_pub_sub.getMask(mask_brick, mask_patch, mask_footprint);
-		// TODO: nekako getta masku sa ivinog topica
-		// TODO: Isto ce bit maska *hopefully
-		// 
+		
 		if (pcl_pub_sub.calc_brick_ || (pcl_pub_sub.calc_patch_ && (pcl_pub_sub.nPatches == 0))) {
 			filteredCloud = removeNonMaskValues(originalCloud, mask_brick);
 			filteredCloud = removeNaNValues(filteredCloud);
@@ -113,8 +111,26 @@ void PointcloudFilter::filter ( int argc, char** argv,
 
 		}
 
-		// TODO: Ja cu sada imati calc_footpring
-		// TODO: I onda if calc footrpint nesto se desi
+		if (pcl_pub_sub.calc_footprint_) {
+			try 
+			{
+				string goal_frame = "base_footprint";
+				tf::StampedTransform temp_trans;
+				auto transformedFilteredCloud = boost::make_shared<pcXYZ>();
+				tf_listener.lookupTransform( 	goal_frame, filteredCloud->header.frame_id, 
+												ros::Time(0), temp_trans );
+				pcl_ros::transformPointCloud(*filteredCloud, *transformedFilteredCloud, temp_trans);
+				double closest_x_base, biggest_z_base;
+				findClosestXAndBiggestZ(transformedFilteredCloud, closest_x_base, biggest_z_base);
+				pcl_pub_sub.publishBaseDistance(closest_x_base, "footprint");
+			}
+			catch ( tf::TransformException ex ){
+				ROS_ERROR("%s",ex.what());
+				ros::Duration(1.0).sleep();
+			}
+
+			pcl_pub_sub.resetNewMeasurementFlag();
+		}
 
 		if ((pcl_pub_sub.calc_patch_) && (pcl_pub_sub.nPatches > 0)) {
 			filteredCloud = removeNonMaskValues(originalCloud, mask_patch);

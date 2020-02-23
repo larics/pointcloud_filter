@@ -45,6 +45,7 @@ class PC_PUB_SUB
 		int nPatches = 0;
 		bool calc_brick_ = false;
 		bool calc_patch_ = false;
+		bool calc_footprint_ = false;
 
 		PC_PUB_SUB ( 
 			ros::NodeHandle& nodeHandle, string pointcloud_sub_topic, 
@@ -92,7 +93,7 @@ class PC_PUB_SUB
 			pcl::PointCloud<pcl::PointXYZ>::Ptr pointCloud, string camera_frame);
 		
 		void publishDistance(double distance, string which = "brick"); 
-		void publishBaseDistance(double distance, string which = "brick"); 
+		void publishBaseDistance(double distance, string which = "brick");
 		void publishBaseBiggestZ(double z, string which = "brick");
 		void publishClosestPointZ(double z, string which = "brick");
 
@@ -120,6 +121,7 @@ class PC_PUB_SUB
 		ros::Publisher pub_base_z_max_patch_;
 		ros::Publisher pub_closest_point_z_;
 		ros::Publisher pub_closest_point_z_patch_;
+		ros::Publisher pub_base_footprint_distance_;
 		
 		pcl::PointCloud<pcl::PointXYZ>::Ptr organizedCloudPtr;
 		vector< vector <int>> mask_brick;

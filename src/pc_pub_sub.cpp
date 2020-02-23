@@ -194,16 +194,24 @@ void PC_PUB_SUB::smStateCallback(const std_msgs::String& ros_msg)
 
 	// TODO: Ovdje imam if state "goto_wall_servo" onda aktiviram calc_fooprint
   if (sm_state == "husky_servo_color") {
-	calc_brick_ = true;
-	calc_patch_ = true;
+		calc_brick_ = true;
+		calc_patch_ = true;
+		calc_footprint_ = false;
   }
+	else if (sm_state == "goto_wall_servo") {
+		calc_footprint_ = true;
+		calc_brick_ = false;
+	  calc_patch_ = false;
+	}
   else if ((sm_state == "husky_servo_patch") || (sm_state == "schunk_repeat_servo") || (sm_state == "schunk_servo_pickup")) {
 	  calc_brick_ = false;
 	  calc_patch_ = true;
+		calc_footprint_ = false;
   }
   else {
 	  calc_brick_ = false;
 	  calc_patch_ = false;
+		calc_footprint_ = false;
   }
 }
 
@@ -254,6 +262,8 @@ void PC_PUB_SUB::publishBaseDistance(double distance, string which)
 		pub_base_distance_.publish(*msg);
 	else if (which == "patch")
 		pub_base_distance_patch_.publish(*msg);
+	else if (which == "footprint")
+		pub_base_footprint_distance_.publish(*msg);
 }
 
 void PC_PUB_SUB::publishBaseBiggestZ(double z, string which) 
