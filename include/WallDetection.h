@@ -50,7 +50,7 @@ struct WallDetectionParameters
   static constexpr double UPSCALE_INCREMENT = 0.01;
   static constexpr double UPSCALE_LIMIT = 0.75;
   static constexpr double MAX_FIT = 1e5;
-  static constexpr double DILATION_FACTOR = 4;
+  static constexpr double DILATION_FACTOR = 9;
   static constexpr double CLOUD_RESOLUTION = 20.0;
   static constexpr int    MIN_MATCH_SIZE = 3500;
   static constexpr double MAX_DISTANCE = 3;
@@ -404,8 +404,30 @@ PCXYZ::Ptr do_outlier_filtering(const PCXYZ::Ptr& t_inputCloud)
 	return filteredCloud;
 }
 
+PCXYZ::Ptr decrease_by_min_height(const PCXYZ::Ptr& t_input) {
+  if (t_input->empty()) {
+    return t_input;
+  }
+
+  pcl::PointXYZ minPoint, maxPoint;
+  pcl::getMinMax3D(*t_input, minPoint, maxPoint);
+  auto outCloud = boost::make_shared<PCXYZ>();
+  for (const auto& point : t_input->points) {
+    outCloud->points.push_back(pcl::PointXYZ(
+      point.x, 
+      point.y, 
+      point.z - minPoint.z
+    ));
+  }
+  return outCloud;
+}
+
 PCXYZ::Ptr demean_cloud(const PCXYZ::Ptr& t_cloudWithMean)
 {
+  if (t_cloudWithMean->empty()) {
+    return t_cloudWithMean;
+  }
+
   auto outCloud = boost::make_shared<PCXYZ>();
   pcl::compute3DCentroid(*t_cloudWithMean, m_lastFoundMapCentroid);
   for (const auto& point : t_cloudWithMean->points) {
