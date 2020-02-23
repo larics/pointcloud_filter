@@ -112,6 +112,8 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		}
 
 		if (pcl_pub_sub.calc_footprint_) {
+			filteredCloud = removeNonMaskValues(originalCloud, mask_footprint);
+			filteredCloud = removeNaNValues(filteredCloud);
 			try 
 			{
 				string goal_frame = "base_footprint";
