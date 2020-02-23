@@ -28,6 +28,8 @@ PC_PUB_SUB::PC_PUB_SUB(	ros::NodeHandle& nodeHandle, string pointcloud_sub_topic
 	registerBaseMaxZPublisher(topic, topic + "_patch");
 	topic = "pc_filter/closest_point_z";
 	registerClosestPointZPublisher(topic, topic + "_patch");
+	topic = "/pc_filter/wall_footprint/base_closest_x/filtered";
+	registerFootPrintDistancePublisher(topic);
 
 	topic = "/brick_color";
 	registerBrickColorSubscriber(topic);
@@ -94,6 +96,10 @@ void PC_PUB_SUB::registerSmStateSubscriber(string topic) {
 
 }
 
+void PC_PUB_SUB::registerFootPrintDistancePublisher(string topic)
+{
+	pub_base_footprint_distance_ = nodeHandle_.advertise<std_msgs::Float32>(topic, 1);
+}
 
 void PC_PUB_SUB::registerPointCloudPublisher(string topic) 
 {

@@ -69,6 +69,7 @@ class PC_PUB_SUB
 		void registerBaseDistancePublisher(string topic, string topic_patch);
 		void registerBaseMaxZPublisher(string topic, string topic_patch);
 		void registerClosestPointZPublisher(string topic, string topic_patch);
+		void registerFootPrintDistancePublisher(string topic);
 
 		void registerBrickColorSubscriber(string topic);
 		void registerSmStateSubscriber(string topic);
