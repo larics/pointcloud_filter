@@ -112,7 +112,12 @@ void PointcloudFilter::filter ( int argc, char** argv,
 		}
 
 		if (pcl_pub_sub.calc_footprint_) {
+			cout << "calc_footprint!" << endl << endl;
+			
 			filteredCloud = removeNonMaskValues(originalCloud, mask_footprint);
+
+			if(!filteredCloud || filteredCloud->points.size() == 0) cout <<"point size " << filteredCloud->points.size() << endl << endl;
+
 			filteredCloud = removeNaNValues(filteredCloud);
 			try 
 			{

@@ -162,7 +162,7 @@ vector <vector <int>> PC_PUB_SUB::processMaskImage(const cv::Mat image) {
 		vector <int> temp_vec;
 		for (int j = 0; j < width; j++) {
 			int d = *(image.data + i * width +j);
-
+            //cout << "d = " << d << endl << endl;
 			if (d > 255 || d < 0) {
 				sum++;
 			}
@@ -170,6 +170,7 @@ vector <vector <int>> PC_PUB_SUB::processMaskImage(const cv::Mat image) {
 		}
 		image_mat.push_back(temp_vec);
 	}
+    cout << "sum je " << sum << endl << endl;
 	return image_mat;
 }
 
@@ -190,6 +191,7 @@ void PC_PUB_SUB::rosMaskImagePatchCallback(const sensor_msgs::CompressedImage::C
 
 void PC_PUB_SUB::rosMaskFootprintCallback(const sensor_msgs::CompressedImage::ConstPtr& ros_msg)
 {
+    cout << "tu smo u callbacku!" << endl << endl;
 	const auto image = cv::imdecode(cv::Mat(ros_msg->data), -1);
 	mask_footprint = PC_PUB_SUB::processMaskImage(image);
 }
@@ -204,10 +206,10 @@ void PC_PUB_SUB::smStateCallback(const std_msgs::String& ros_msg)
 		calc_patch_ = true;
 		calc_footprint_ = false;
   }
-	else if (sm_state == "goto_wall_servo") {
+	else if (sm_state == "goto_wall_servo" || sm_state == "pattern_servo") {
 		calc_footprint_ = true;
 		calc_brick_ = false;
-	  calc_patch_ = false;
+	  	calc_patch_ = false;
 	}
   else if ((sm_state == "husky_servo_patch") || (sm_state == "schunk_repeat_servo") || (sm_state == "schunk_servo_pickup")) {
 	  calc_brick_ = false;
