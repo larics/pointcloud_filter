@@ -9,16 +9,11 @@ find_package(catkin REQUIRED COMPONENTS
 	roslib
 	cv_bridge
 	image_transport
-	mavros
 )
 
 generate_dynamic_reconfigure_options(
 	config/BrickDistanceParameters.cfg
-	config/WallDetectionParameters.cfg
 )
-
-list(INSERT CMAKE_MODULE_PATH 0 "/usr/share/cmake/geographiclib/")
-find_package(GeographicLib REQUIRED)
 
 find_package(PCL 1.7 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -53,9 +48,3 @@ target_link_libraries(
 )
 
 add_definitions(${PCL_DEFINITIONS})
-
-add_executable(wall_detection src/WallDetectionNode.cpp)
-target_link_libraries(wall_detection 
-	${catkin_LIBRARIES} 
-	${PCL_LIBRARIES} 
-	${OpenCV_LIBS})
